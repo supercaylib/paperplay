@@ -4,7 +4,7 @@ import Admin from './Admin'
 
 function App() {
   return (
-    <div className="app-container">
+    <div>
       <Routes>
         <Route path="/" element={<h1>Welcome to PaperPlay! Scan a sticker to start.</h1>} />
         <Route path="/admin" element={<Admin />} />
