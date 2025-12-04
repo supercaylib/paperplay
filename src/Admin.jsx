@@ -15,7 +15,7 @@ export default function Admin() {
     
     const newCodes = Array.from({ length: count }).map((_, i) => ({
       id: `tag-${batchId}-${i + 1}`,
-      link: `${baseUrl}/#/${batchId}-${i + 1}`
+      link: `${baseUrl}/tag-${batchId}-${i + 1}`
     }))
     setCodes(newCodes)
   }
