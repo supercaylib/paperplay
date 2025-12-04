@@ -3,28 +3,21 @@ import QRCode from 'react-qr-code'
 import { supabase } from './supabaseClient'
 
 export default function Admin() {
-  // CONFIG
   const [baseUrl, setBaseUrl] = useState('https://paperplay-nu.vercel.app') 
   const [count, setCount] = useState(5)
-  
-  // DATA
   const [generatedCodes, setGeneratedCodes] = useState([]) 
   const [dbCodes, setDbCodes] = useState([]) 
   const [loading, setLoading] = useState(false)
   
-  // MODALS
+  // Modals
   const [previewVideo, setPreviewVideo] = useState(null)
-  const [viewQr, setViewQr] = useState(null) // New: For viewing a specific QR
+  const [viewQr, setViewQr] = useState(null)
 
-  // Load Data
   useEffect(() => { fetchCodes() }, [])
 
   async function fetchCodes() {
     setLoading(true)
-    const { data } = await supabase
-      .from('qr_codes')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const { data } = await supabase.from('qr_codes').select('*').order('created_at', { ascending: false })
     if (data) setDbCodes(data)
     setLoading(false)
   }
@@ -43,30 +36,25 @@ export default function Admin() {
     }
 
     const { error } = await supabase.from('qr_codes').insert(dbRows)
-    if (error) {
-      alert('Error: ' + error.message)
-    } else {
+    if (error) alert('Error: ' + error.message)
+    else {
       setGeneratedCodes(newItems)
       fetchCodes()
     }
   }
 
   async function deleteCode(id) {
-    if (!confirm('Delete this sticker permanently?')) return
+    if (!confirm('Delete this sticker?')) return
     const { error } = await supabase.from('qr_codes').delete().eq('id', id)
     if (!error) fetchCodes()
   }
 
   async function deleteAllUnavailable() {
     const unavailableCount = dbCodes.filter(c => c.video_url).length
-    if (unavailableCount === 0) return alert('No stickers to delete.')
-    if (!confirm(`Permanently delete ${unavailableCount} used stickers?`)) return
-
+    if (unavailableCount === 0) return
+    if (!confirm(`Delete ${unavailableCount} used stickers?`)) return
     const { error } = await supabase.from('qr_codes').delete().not('video_url', 'is', null)
-    if (!error) {
-      alert('Cleanup complete!')
-      fetchCodes()
-    }
+    if (!error) fetchCodes()
   }
 
   function copyToClipboard(link) {
@@ -75,66 +63,58 @@ export default function Admin() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f1f2f6', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#f8f9fa', padding: '30px', fontFamily: 'Inter, sans-serif' }}>
       
       {/* HEADER */}
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ margin: 0, color: '#2d3436' }}>🖨️ PaperPlay Admin</h1>
-        <button onClick={() => window.location.reload()} style={{ background: 'white', border: '1px solid #ccc', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>
+      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', maxWidth: '1100px', margin: '0 auto 30px' }}>
+        <h2 style={{ margin: 0, color: '#333' }}>🖨️ Admin</h2>
+        <button onClick={() => window.location.reload()} style={{ background: 'white', color: '#333', border: '1px solid #ddd' }}>
           🔄 Refresh
         </button>
       </div>
 
-      {/* CONTROLS & PREVIEW */}
-      <div className="no-print" style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', marginBottom: '20px' }}>
+      <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '25px', maxWidth: '1100px', margin: '0 auto' }}>
         
-        {/* Generator */}
-        <div style={{ flex: '0 0 320px', background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ marginTop: 0 }}>⚙️ Controls</h3>
+        {/* LEFT: CONTROLS */}
+        <div style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', height: 'fit-content' }}>
+          <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#555' }}>Generate</h4>
           
-          <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Base URL</label>
-          <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} style={{ padding: '8px', width: '100%', marginBottom: '10px', border: '1px solid #ddd', borderRadius: '5px' }} />
+          <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#777' }}>Base URL</label>
+          <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} style={{ padding: '10px', width: '100%', marginBottom: '15px', border: '1px solid #eee', borderRadius: '8px', fontSize: '13px' }} />
           
-          <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Quantity</label>
-          <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} style={{ padding: '8px', width: '100%', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '5px' }} />
+          <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#777' }}>Quantity</label>
+          <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} style={{ padding: '10px', width: '100%', marginBottom: '20px', border: '1px solid #eee', borderRadius: '8px', fontSize: '13px' }} />
           
-          <button onClick={generateAndSave} style={{ background: 'black', width: '100%', padding: '10px', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-            Generate
-          </button>
+          <button onClick={generateAndSave} style={{ background: '#2d3436', width: '100%' }}>Generate</button>
           
           {generatedCodes.length > 0 && (
-             <button onClick={() => window.print()} style={{ background: '#0984e3', width: '100%', marginTop: '10px', padding: '10px', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-               🖨️ Print Preview
-             </button>
+             <button onClick={() => window.print()} style={{ background: '#0984e3', width: '100%', marginTop: '10px' }}>🖨️ Print</button>
           )}
         </div>
 
-        {/* Print Preview Grid */}
-        <div style={{ flex: 1, background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', minHeight: '280px' }}>
-          <h3 style={{ marginTop: 0 }}>📄 Ready to Print</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '15px' }}>
+        {/* RIGHT: PREVIEW */}
+        <div style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+          <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#555' }}>Preview</h4>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '15px' }}>
             {generatedCodes.map(item => (
-              <div key={item.id} style={{ border: '1px dashed #333', padding: '10px', textAlign: 'center', borderRadius: '8px' }}>
-                <QRCode value={item.link} size={80} style={{ width: '100%', height: 'auto' }} />
-                <p style={{ fontSize: '10px', margin: '5px 0' }}>{item.id}</p>
-                <p style={{ fontSize: '9px', fontWeight: 'bold' }}>SCAN ME</p>
+              <div key={item.id} style={{ border: '1px dashed #ddd', padding: '10px', textAlign: 'center', borderRadius: '8px' }}>
+                <QRCode value={item.link} size={60} style={{ width: '100%', height: 'auto' }} />
+                <p style={{ fontSize: '9px', margin: '5px 0', color: '#999' }}>{item.id}</p>
               </div>
             ))}
+            {generatedCodes.length === 0 && <p style={{ fontSize: '13px', color: '#ccc' }}>Ready to generate.</p>}
           </div>
         </div>
       </div>
 
       {/* DATABASE TABLE */}
-      <div className="no-print" style={{ background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+      <div className="no-print" style={{ maxWidth: '1100px', margin: '30px auto', background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-          <h3 style={{ margin: 0 }}>📂 Database ({dbCodes.length})</h3>
+          <h4 style={{ margin: 0, color: '#555' }}>Database ({dbCodes.length})</h4>
           
           {/* SMALLER CLEANUP BUTTON */}
           {dbCodes.some(c => c.video_url) && (
-            <button 
-              onClick={deleteAllUnavailable}
-              style={{ background: '#ff7675', color: 'white', border: 'none', borderRadius: '5px', padding: '8px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
+            <button onClick={deleteAllUnavailable} style={{ background: '#ff7675', fontSize: '12px', padding: '6px 12px' }}>
               🗑️ Cleanup Used
             </button>
           )}
@@ -143,7 +123,7 @@ export default function Admin() {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
-              <tr style={{ background: '#f8f9fa', textAlign: 'left', borderBottom: '2px solid #eee' }}>
+              <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', color: '#999' }}>
                 <th style={{ padding: '10px' }}>ID</th>
                 <th style={{ padding: '10px' }}>Status</th>
                 <th style={{ padding: '10px' }}>Content</th>
@@ -154,37 +134,27 @@ export default function Admin() {
               {dbCodes.map(row => {
                 const hasVideo = !!row.video_url
                 return (
-                  <tr key={row.id} style={{ borderBottom: '1px solid #f1f1f1' }}>
-                    <td style={{ padding: '10px', fontWeight: 'bold', color: '#555' }}>
-                      {row.id}
-                      <div style={{ fontSize: '10px', color: '#aaa' }}>{new Date(row.created_at).toLocaleDateString()}</div>
-                    </td>
+                  <tr key={row.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                    <td style={{ padding: '12px 10px', fontWeight: '600', color: '#555' }}>{row.id}</td>
                     
-                    <td style={{ padding: '10px' }}>
+                    <td style={{ padding: '12px 10px' }}>
                       {hasVideo ? (
-                        <span style={{ background: '#ffeaa7', color: '#d35400', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>🔴 Used</span>
+                        <span style={{ background: '#fff0f0', color: '#e17055', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>🔴 Used</span>
                       ) : (
-                        <span style={{ background: '#55efc4', color: '#00b894', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>🟢 Empty</span>
+                        <span style={{ background: '#e3fafc', color: '#00cec9', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>🟢 Empty</span>
                       )}
                     </td>
 
-                    <td style={{ padding: '10px' }}>
+                    <td style={{ padding: '12px 10px' }}>
                       {hasVideo ? (
-                        <button onClick={() => setPreviewVideo(row.video_url)} style={{ background: '#74b9ff', color: 'white', border: 'none', borderRadius: '4px', padding: '5px 10px', cursor: 'pointer' }}>🎥 Watch</button>
-                      ) : <span style={{ color: '#ccc' }}>—</span>}
+                        <button onClick={() => setPreviewVideo(row.video_url)} style={{ background: '#74b9ff', fontSize: '11px', padding: '6px 12px' }}>🎥 Watch</button>
+                      ) : <span style={{ color: '#eee' }}>—</span>}
                     </td>
 
-                    <td style={{ padding: '10px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '5px' }}>
-                      {/* NEW: VIEW QR BUTTON */}
-                      <button onClick={() => setViewQr({link: `${baseUrl}/${row.id}`, id: row.id})} style={{ background: '#a29bfe', color: 'white', border: 'none', borderRadius: '4px', padding: '6px', cursor: 'pointer' }} title="Show QR">
-                        👁️
-                      </button>
-                      <button onClick={() => copyToClipboard(`${baseUrl}/${row.id}`)} style={{ background: '#dfe6e9', color: '#333', border: 'none', borderRadius: '4px', padding: '6px', cursor: 'pointer' }} title="Copy Link">
-                        🔗
-                      </button>
-                      <button onClick={() => deleteCode(row.id)} style={{ background: '#ff7675', color: 'white', border: 'none', borderRadius: '4px', padding: '6px', cursor: 'pointer' }} title="Delete">
-                        🗑️
-                      </button>
+                    <td style={{ padding: '12px 10px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button onClick={() => setViewQr({link: `${baseUrl}/${row.id}`, id: row.id})} style={{ background: '#a29bfe', padding: '6px 10px' }}>👁️</button>
+                      <button onClick={() => copyToClipboard(`${baseUrl}/${row.id}`)} style={{ background: '#dfe6e9', color: '#555', padding: '6px 10px' }}>🔗</button>
+                      <button onClick={() => deleteCode(row.id)} style={{ background: '#ff7675', padding: '6px 10px' }}>🗑️</button>
                     </td>
                   </tr>
                 )
@@ -194,38 +164,30 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* --- MODALS --- */}
-
-      {/* 1. VIDEO MODAL */}
+      {/* MODALS */}
       {previewVideo && (
         <div className="modal-overlay" onClick={() => setPreviewVideo(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setPreviewVideo(null)}>✕</button>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: 'transparent', boxShadow: 'none' }}>
+             <button onClick={() => setPreviewVideo(null)} style={{ position: 'absolute', top: '-40px', right: 0, background: 'none', color: 'white', fontSize: '24px', padding: 0 }}>✕</button>
             <video src={previewVideo} controls autoPlay />
           </div>
         </div>
       )}
 
-      {/* 2. QR CODE MODAL (The New Feature) */}
       {viewQr && (
         <div className="modal-overlay" onClick={() => setViewQr(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: 'white', padding: '30px', borderRadius: '15px', maxWidth: '300px' }}>
-            <button className="modal-close" onClick={() => setViewQr(null)} style={{ color: '#333', top: '-35px', right: '-10px' }}>✕</button>
-            <h3 style={{ margin: '0 0 20px 0' }}>{viewQr.id}</h3>
-            <div style={{ background: 'white', padding: '10px', border: '2px dashed #333', borderRadius: '10px' }}>
-              <QRCode value={viewQr.link} size={200} style={{ width: '100%', height: 'auto' }} />
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, color: '#333' }}>Scan Code</h3>
+            <div style={{ padding: '20px', background: '#f9f9f9', borderRadius: '12px', display: 'inline-block' }}>
+              <QRCode value={viewQr.link} size={180} />
             </div>
-            <p style={{ marginTop: '20px', fontSize: '12px', color: '#666' }}>Scan to test this link.</p>
+            <p style={{ fontSize: '12px', color: '#999', marginBottom: '20px' }}>{viewQr.id}</p>
+            <button onClick={() => setViewQr(null)} style={{ background: '#eee', color: '#333', width: '100%' }}>Close</button>
           </div>
         </div>
       )}
 
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          body, div { background: white !important; margin: 0 !important; padding: 0 !important; height: auto !important; }
-        }
-      `}</style>
+      <style>{`@media print { .no-print { display: none !important; } }`}</style>
     </div>
   )
 }
