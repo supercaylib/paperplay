@@ -1,0 +1,16 @@
+import { Routes, Route } from 'react-router-dom'
+import Scan from './Scan'
+
+function App() {
+  return (
+    <div className="app-container">
+      <Routes>
+        <Route path="/" element={<h1>Welcome to PaperPlay! Scan a sticker to start.</h1>} />
+        {/* This handles any ID (e.g. localhost:5173/gift-1) */}
+        <Route path="/:id" element={<Scan />} />
+      </Routes>
+    </div>
+  )
+}
+
+export default App
