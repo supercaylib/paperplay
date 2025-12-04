@@ -78,11 +78,12 @@ input[type="file"] {
 /* IMPROVED VIDEO PLAYER */
 video {
   width: 100%;
-  max-height: 70vh; /* Prevents vertical videos from being too tall */
+  /* This ensures the video player always has a nice shape, even before loading */
+  aspect-ratio: 16/9; 
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  background: black; /* Cinema look */
-  object-fit: contain; /* Ensures video isn't stretched/squashed */
+  background: black;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  object-fit: contain; /* Ensures the whole video is visible */
   display: block;
 }
 
