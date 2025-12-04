@@ -75,10 +75,19 @@ input[type="file"] {
   border: 2px dashed #b2bec3;
 }
 
-/* Video Player */
+/* IMPROVED VIDEO PLAYER */
 video {
   width: 100%;
-  border-radius: 15px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-  background: black;
+  max-height: 70vh; /* Prevents vertical videos from being too tall */
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  background: black; /* Cinema look */
+  object-fit: contain; /* Ensures video isn't stretched/squashed */
+  display: block;
+}
+
+/* Modal specific video fix */
+.video-modal video {
+  max-height: 80vh;
+  box-shadow: none;
 }

@@ -180,16 +180,62 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* VIDEO MODAL */}
+      {/* IMPROVED VIDEO PREVIEW MODAL */}
       {previewVideo && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-          <div style={{ background: 'white', padding: '10px', borderRadius: '10px', width: '90%', maxWidth: '600px', position: 'relative' }}>
-            <button onClick={() => setPreviewVideo(null)} style={{ position: 'absolute', top: '-40px', right: 0, background: 'none', color: 'white', fontSize: '30px', width: 'auto', border: 'none' }}>✖</button>
-            <video src={previewVideo} controls style={{ width: '100%', borderRadius: '5px' }} />
+        <div 
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            width: '100%', 
+            height: '100%', 
+            background: 'rgba(0,0,0,0.9)', /* Darker background */
+            display: 'flex', 
+            flexDirection: 'column',
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            zIndex: 9999 
+          }}
+          onClick={() => setPreviewVideo(null)} // Click background to close
+        >
+          {/* Close Button Row */}
+          <div style={{ width: '90%', maxWidth: '800px', display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+            <button 
+              onClick={() => setPreviewVideo(null)} 
+              style={{ 
+                background: '#333', 
+                color: 'white', 
+                border: '1px solid #555', 
+                borderRadius: '50%', 
+                width: '40px', 
+                height: '40px', 
+                fontSize: '18px', 
+                cursor: 'pointer',
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                padding: 0
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* The Video Player (No white box, just the video) */}
+          <div 
+            className="video-modal" 
+            onClick={(e) => e.stopPropagation()} // Clicking video won't close it
+            style={{ width: '90%', maxWidth: '800px' }}
+          >
+            <video 
+              src={previewVideo} 
+              controls 
+              autoPlay 
+              style={{ width: '100%', borderRadius: '10px', outline: 'none' }} 
+            />
           </div>
         </div>
       )}
-
       {/* PRINT STYLES (Hides the dashboard, shows only the grid) */}
       <style>{`
         @media print {
