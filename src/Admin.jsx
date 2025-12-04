@@ -5,7 +5,8 @@ import { supabase } from './supabaseClient'
 export default function Admin() {
   // CONFIG
   const [baseUrl, setBaseUrl] = useState('https://paperplay-nu.vercel.app') 
-  const [count, setCount] = useState(6)
+  // CHANGE 1: Default quantity set to 5
+  const [count, setCount] = useState(5)
   
   // DATA
   const [generatedCodes, setGeneratedCodes] = useState([]) 
@@ -34,7 +35,6 @@ export default function Admin() {
 
     for (let i = 0; i < count; i++) {
       const id = `tag-${batchId}-${i + 1}`
-      // Clean URL (BrowserRouter)
       const link = `${baseUrl}/${id}`
       newItems.push({ id, link })
       dbRows.push({ id: id, video_url: null, unlock_at: null })
@@ -55,27 +55,46 @@ export default function Admin() {
     if (!error) fetchCodes()
   }
 
+  // CHANGE 2: New "Delete All Unavailable" Function
+  async function deleteAllUnavailable() {
+    const unavailableCount = dbCodes.filter(c => c.video_url).length
+    if (unavailableCount === 0) return alert('No unavailable stickers to delete.')
+
+    if (!confirm(`⚠️ WARNING: This will delete ${unavailableCount} stickers that contain user videos.\n\nAre you sure you want to clean up?`)) return
+
+    const { error } = await supabase
+      .from('qr_codes')
+      .delete()
+      .not('video_url', 'is', null) // Deletes where video_url is NOT null (meaning it has a video)
+    
+    if (error) {
+      alert('Error: ' + error.message)
+    } else {
+      alert('Cleanup complete!')
+      fetchCodes()
+    }
+  }
+
   function copyToClipboard(link) {
     navigator.clipboard.writeText(link)
     alert('Copied!')
   }
 
   return (
-    // 1. MAIN WRAPPER: Full Screen, Light Gray Background
     <div style={{ minHeight: '100vh', background: '#f1f2f6', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
       
       {/* HEADER ROW */}
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '0 10px' }}>
         <h1 style={{ margin: 0, color: '#2d3436' }}>🖨️ PaperPlay Admin</h1>
-        <button onClick={() => window.location.reload()} style={{ width: 'auto', background: 'white', color: '#333', border: '1px solid #ccc', padding: '8px 15px' }}>
+        <button onClick={() => window.location.reload()} style={{ width: 'auto', background: 'white', color: '#333', border: '1px solid #ccc', padding: '8px 15px', cursor: 'pointer' }}>
           🔄 Refresh Data
         </button>
       </div>
 
-      {/* 2. SPLIT VIEW ROW (Controls Left, Preview Right) */}
+      {/* SPLIT VIEW ROW */}
       <div className="no-print" style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', marginBottom: '20px' }}>
         
-        {/* LEFT CARD: Generator Controls */}
+        {/* LEFT CARD: Generator */}
         <div style={{ flex: '0 0 350px', background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
           <h3 style={{ marginTop: 0 }}>⚙️ Controls</h3>
           
@@ -85,18 +104,18 @@ export default function Admin() {
           <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px', fontSize: '14px' }}>Quantity</label>
           <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} style={{ padding: '10px', width: '100%', marginBottom: '20px', border: '1px solid #ddd', borderRadius: '6px' }} />
           
-          <button onClick={generateAndSave} style={{ background: 'black', width: '100%', padding: '12px' }}>
+          <button onClick={generateAndSave} style={{ background: 'black', width: '100%', padding: '12px', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
             Generate Stickers
           </button>
 
           {generatedCodes.length > 0 && (
-             <button onClick={() => window.print()} style={{ background: '#0984e3', width: '100%', marginTop: '10px', padding: '12px' }}>
+             <button onClick={() => window.print()} style={{ background: '#0984e3', width: '100%', marginTop: '10px', padding: '12px', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                🖨️ Print Preview
              </button>
           )}
         </div>
 
-        {/* RIGHT CARD: Print Preview (The Grid) */}
+        {/* RIGHT CARD: Preview */}
         <div style={{ flex: 1, background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', minHeight: '300px' }}>
           <h3 style={{ marginTop: 0, marginBottom: '20px' }}>📄 Print Preview</h3>
           
@@ -118,9 +137,35 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* 3. BOTTOM ROW: Full Width Database Table */}
+      {/* BOTTOM ROW: Database Table */}
       <div className="no-print" style={{ background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
-        <h3 style={{ marginTop: 0 }}>📂 Sticker Database ({dbCodes.length})</h3>
+        
+        {/* HEADER WITH DELETE BUTTON */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h3 style={{ margin: 0 }}>📂 Sticker Database ({dbCodes.length})</h3>
+          
+          {/* Only show "Delete All Used" if there are actually used stickers */}
+          {dbCodes.some(c => c.video_url) && (
+            <button 
+              onClick={deleteAllUnavailable}
+              style={{ 
+                background: '#ff7675', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '6px', 
+                padding: '8px 15px', 
+                fontSize: '12px', 
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              🗑️ Delete All Unavailable
+            </button>
+          )}
+        </div>
         
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', fontSize: '14px' }}>
@@ -156,7 +201,7 @@ export default function Admin() {
 
                     <td style={{ padding: '12px' }}>
                       {hasVideo ? (
-                        <button onClick={() => setPreviewVideo(row.video_url)} style={{ background: '#74b9ff', fontSize: '11px', padding: '5px 10px', width: 'auto', marginTop: 0 }}>
+                        <button onClick={() => setPreviewVideo(row.video_url)} style={{ background: '#74b9ff', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', padding: '5px 10px', width: 'auto', marginTop: 0, cursor: 'pointer' }}>
                           🎥 Watch
                         </button>
                       ) : (
@@ -165,10 +210,10 @@ export default function Admin() {
                     </td>
 
                     <td style={{ padding: '12px', textAlign: 'right' }}>
-                      <button onClick={() => copyToClipboard(`${baseUrl}/${row.id}`)} style={{ background: 'transparent', border: '1px solid #ddd', color: '#555', padding: '5px 10px', width: 'auto', marginRight: '5px', marginTop: 0 }}>
+                      <button onClick={() => copyToClipboard(`${baseUrl}/${row.id}`)} style={{ background: 'transparent', border: '1px solid #ddd', color: '#555', padding: '5px 10px', width: 'auto', marginRight: '5px', marginTop: 0, borderRadius: '4px', cursor: 'pointer' }} title="Copy Link">
                         🔗
                       </button>
-                      <button onClick={() => deleteCode(row.id)} style={{ background: '#ff7675', padding: '5px 10px', width: 'auto', marginTop: 0 }}>
+                      <button onClick={() => deleteCode(row.id)} style={{ background: '#ff7675', color: 'white', border: 'none', borderRadius: '4px', padding: '5px 10px', width: 'auto', marginTop: 0, cursor: 'pointer' }} title="Delete">
                         🗑️
                       </button>
                     </td>
@@ -177,6 +222,7 @@ export default function Admin() {
               })}
             </tbody>
           </table>
+          {dbCodes.length === 0 && <p style={{ textAlign: 'center', padding: '20px', color: '#999' }}>No data found.</p>}
         </div>
       </div>
 
@@ -184,59 +230,21 @@ export default function Admin() {
       {previewVideo && (
         <div 
           style={{ 
-            position: 'fixed', 
-            top: 0, 
-            left: 0, 
-            width: '100%', 
-            height: '100%', 
-            background: 'rgba(0,0,0,0.9)', /* Darker background */
-            display: 'flex', 
-            flexDirection: 'column',
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            zIndex: 9999 
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', 
+            background: 'rgba(0,0,0,0.9)', display: 'flex', flexDirection: 'column',
+            justifyContent: 'center', alignItems: 'center', zIndex: 9999 
           }}
-          onClick={() => setPreviewVideo(null)} // Click background to close
+          onClick={() => setPreviewVideo(null)}
         >
-          {/* Close Button Row */}
           <div style={{ width: '90%', maxWidth: '800px', display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-            <button 
-              onClick={() => setPreviewVideo(null)} 
-              style={{ 
-                background: '#333', 
-                color: 'white', 
-                border: '1px solid #555', 
-                borderRadius: '50%', 
-                width: '40px', 
-                height: '40px', 
-                fontSize: '18px', 
-                cursor: 'pointer',
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                padding: 0
-              }}
-            >
-              ✕
-            </button>
+            <button onClick={() => setPreviewVideo(null)} style={{ background: '#333', color: 'white', border: '1px solid #555', borderRadius: '50%', width: '40px', height: '40px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>✕</button>
           </div>
-
-          {/* The Video Player (No white box, just the video) */}
-          <div 
-            className="video-modal" 
-            onClick={(e) => e.stopPropagation()} // Clicking video won't close it
-            style={{ width: '90%', maxWidth: '800px' }}
-          >
-            <video 
-              src={previewVideo} 
-              controls 
-              autoPlay 
-              style={{ width: '100%', borderRadius: '10px', outline: 'none' }} 
-            />
+          <div className="video-modal" onClick={(e) => e.stopPropagation()} style={{ width: '90%', maxWidth: '800px' }}>
+            <video src={previewVideo} controls autoPlay style={{ width: '100%', borderRadius: '10px', outline: 'none' }} />
           </div>
         </div>
       )}
-      {/* PRINT STYLES (Hides the dashboard, shows only the grid) */}
+
       <style>{`
         @media print {
           .no-print { display: none !important; }
