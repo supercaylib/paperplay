@@ -1,22 +1,84 @@
+/* 1. GLOBAL RESET */
+* {
+  box-sizing: border-box; /* Prevents padding from breaking width */
+}
+
 body {
-  font-family: Arial, sans-serif;
-  background-color: #f0f2f5;
   margin: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f0f2f5; /* Gray background for desktop */
   min-height: 100vh;
 }
 
-button {
-  cursor: pointer;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
+/* 2. THE MAIN CONTAINER (Mobile First) */
+.app-container {
+  width: 100%;
+  min-height: 100vh; /* Fills the whole phone screen */
+  background: white;
+  padding: 25px;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center items horizontally */
+  justify-content: center; /* Center items vertically */
+  text-align: center;
 }
 
-button:hover {
-  background-color: #0056b3;
+/* 3. DESKTOP TWEAKS (When screen is bigger than 600px) */
+@media (min-width: 600px) {
+  .app-container {
+    max-width: 400px; /* Looks like a phone on a monitor */
+    min-height: auto; /* Let content dictate height */
+    margin: 40px auto;
+    border-radius: 25px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    padding: 40px;
+  }
+}
+
+/* 4. MAKE ELEMENTS RESPONSIVE */
+h1 { font-size: 26px; margin-bottom: 10px; color: #2d3436; }
+h2 { font-size: 20px; color: #636e72; }
+p { color: #636e72; line-height: 1.6; margin-bottom: 20px; }
+
+/* Inputs and Buttons fit 100% of the container */
+input[type="text"], 
+input[type="number"], 
+input[type="date"], 
+input[type="file"],
+button {
+  width: 100%; 
+  max-width: 100%;
+  font-size: 16px; /* Prevents zooming on iPhone */
+}
+
+button {
+  background-color: #0984e3;
+  color: white;
+  border: none;
+  padding: 16px;
+  border-radius: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+  box-shadow: 0 4px 10px rgba(9, 132, 227, 0.3);
+  transition: transform 0.2s;
+}
+
+button:active { transform: scale(0.98); }
+
+/* Custom File Input Styling */
+input[type="file"] {
+  padding: 10px;
+  background: #f1f2f6;
+  border-radius: 10px;
+  border: 2px dashed #b2bec3;
+}
+
+/* Video Player */
+video {
+  width: 100%;
+  border-radius: 15px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  background: black;
 }

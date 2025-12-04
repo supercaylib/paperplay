@@ -44,16 +44,20 @@ export default function Admin() {
       </div>
 
       {/* THE STICKERS GRID */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px', textAlign: 'center' }}>
+      <div style={{ 
+        display: 'grid', 
+        // This magic line makes it fit any screen size automatically:
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+        gap: '20px', 
+        textAlign: 'center',
+        width: '100%' 
+      }}>
         {codes.map((item) => (
           <div key={item.id} style={{ border: '2px dashed #333', padding: '15px', borderRadius: '10px' }}>
-            {/* The QR Code */}
-            <QRCode value={item.link} size={100} />
-            
-            {/* Branding */}
+            <QRCode value={item.link} size={100} style={{ maxWidth: '100%', height: 'auto' }} />
             <p style={{ margin: '5px 0 0 0', fontWeight: 'bold', fontSize: '12px' }}>SCAN ME 📸</p>
             <p style={{ margin: '0', fontSize: '10px', color: '#666' }}>PaperPlay</p>
-            <p style={{ fontSize: '8px', color: '#ccc', marginTop: '2px' }}>{item.id}</p>
+            <p style={{ fontSize: '8px', color: '#ccc', marginTop: '2px', wordBreak: 'break-all' }}>{item.id}</p>
           </div>
         ))}
       </div>
