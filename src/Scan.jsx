@@ -1,97 +1,98 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from './supabaseClient'
+import Confetti from 'react-confetti'
 
 export default function Scan() {
-  const { id } = useParams() // Get the ID from the URL (e.g. "gift-1")
+  const { id } = useParams()
   const [loading, setLoading] = useState(true)
-  const [videoUrl, setVideoUrl] = useState(null)
+  const [stickerData, setStickerData] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [unlockDate, setUnlockDate] = useState('') 
 
-  // 1. Check if this sticker already has a video
-  useEffect(() => {
-    checkSticker()
-  }, [id])
+  useEffect(() => { checkSticker() }, [id])
 
   async function checkSticker() {
-    setLoading(true)
-    // Check database for this specific ID
-    const { data, error } = await supabase
-      .from('qr_codes')
-      .select('video_url')
-      .eq('id', id)
-      .single()
-
-    if (data && data.video_url) {
-      setVideoUrl(data.video_url)
-    }
+    // Check if data exists
+    const { data } = await supabase.from('qr_codes').select('*').eq('id', id).single()
+    setStickerData(data)
     setLoading(false)
   }
 
-  // 2. Handle the Video Upload
   async function handleUpload(event) {
     const file = event.target.files[0]
     if (!file) return
-
     setUploading(true)
-    
-    // A. Upload file to Supabase Storage
+
+    // 1. Upload File
     const fileName = `${id}-${Date.now()}.mp4`
-    const { data: fileData, error: fileError } = await supabase
-      .storage
-      .from('videos')
-      .upload(fileName, file)
-
-    if (fileError) {
-      alert('Error uploading video!')
-      console.error(fileError)
+    const { error: upError } = await supabase.storage.from('videos').upload(fileName, file)
+    
+    if (upError) {
       setUploading(false)
-      return
+      return alert('Upload failed. Try a smaller video.')
     }
 
-    // B. Get the Public URL
-    const { data: publicUrlData } = supabase
-      .storage
-      .from('videos')
-      .getPublicUrl(fileName)
-      
-    const publicUrl = publicUrlData.publicUrl
+    // 2. Get Public URL
+    const { data: urlData } = supabase.storage.from('videos').getPublicUrl(fileName)
 
-    // C. Save the link to the Database
-    const { error: dbError } = await supabase
-      .from('qr_codes')
-      .upsert({ 
-        id: id, 
-        video_url: publicUrl,
-        // unlock_at: new Date().toISOString() // We will add countdown logic later
-      })
-
-    if (dbError) {
-      alert('Database error!')
-    } else {
-      setVideoUrl(publicUrl) // Show the video immediately
+    // 3. Save to Database (With optional Unlock Date)
+    const updateData = { 
+      id: id, 
+      video_url: urlData.publicUrl,
+      unlock_at: unlockDate ? new Date(unlockDate).toISOString() : null
     }
+
+    const { error: dbError } = await supabase.from('qr_codes').upsert(updateData)
+    
+    if (!dbError) setStickerData(updateData)
     setUploading(false)
   }
 
-  // --- RENDER THE UI ---
+  // LOGIC: Is it locked?
+  const isLocked = stickerData?.unlock_at && new Date() < new Date(stickerData.unlock_at)
+  
+  // Calculate Days Remaining
+  const timeLeft = stickerData?.unlock_at ? new Date(stickerData.unlock_at) - new Date() : 0
+  const daysLeft = Math.ceil(timeLeft / (1000 * 60 * 60 * 24))
 
-  if (loading) return <h2>Checking Sticker...</h2>
+  // --- RENDERING ---
 
-  // SCENARIO 1: Video exists (The Receiver View)
-  if (videoUrl) {
+  if (loading) return <div className="app-container"><h2>Loading... 🔄</h2></div>
+
+  // SCENARIO 1: LOCKED (Countdown)
+  if (stickerData?.video_url && isLocked) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <h1>✨ A Surprise for You! ✨</h1>
+      <div className="app-container" style={{textAlign: 'center'}}>
+        <h1 style={{fontSize: '50px'}}>🔒</h1>
+        <h2>Do Not Open Until...</h2>
+        <h3 style={{color: '#ff4757'}}>{new Date(stickerData.unlock_at).toDateString()}</h3>
+        
+        <div style={{background: '#ffeaa7', padding: '20px', borderRadius: '15px', marginTop: '20px'}}>
+          <p style={{margin:0, fontWeight: 'bold', color: '#d35400'}}>TIME REMAINING:</p>
+          <h1 style={{margin:'10px 0', fontSize: '40px'}}>{daysLeft} Days</h1>
+        </div>
+        <p style={{marginTop: '30px', color: '#7f8c8d'}}>Come back later for your surprise!</p>
+      </div>
+    )
+  }
+
+  // SCENARIO 2: UNLOCKED (Video + Confetti)
+  if (stickerData?.video_url) {
+    return (
+      <div className="app-container">
+        <Confetti numberOfPieces={300} recycle={false} />
+        <h1>✨ Surprise! ✨</h1>
         <video 
-          src={videoUrl} 
+          src={stickerData.video_url} 
           controls 
-          style={{ width: '100%', maxWidth: '400px', borderRadius: '10px' }} 
-          autoPlay
+          autoPlay 
+          playsInline
+          style={{ width: '100%', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' }}
         />
         <br />
-        <a href={videoUrl} download>
-          <button style={{ marginTop: '20px', padding: '10px 20px' }}>
+        <a href={stickerData.video_url} download target="_blank">
+          <button style={{marginTop: '20px', background: '#2ecc71'}}>
             Download Memory 📥
           </button>
         </a>
@@ -99,21 +100,33 @@ export default function Scan() {
     )
   }
 
-  // SCENARIO 2: No video yet (The Giver View)
+  // SCENARIO 3: EMPTY (Upload Mode)
   return (
-    <div style={{ padding: '20px', textAlign: 'center' }}>
+    <div className="app-container">
       <h1>Record a Message 🎥</h1>
-      <p>This PaperPlay sticker is empty. Upload a video to link it!</p>
+      <p>This PaperPlay sticker is empty.</p>
       
       <input 
         type="file" 
         accept="video/*" 
         onChange={handleUpload}
         disabled={uploading}
-        style={{ marginTop: '20px' }}
+        className="file-input"
       />
+
+      <div style={{marginTop: '25px', textAlign: 'left', width: '100%', background: '#fff', padding: '15px', borderRadius: '10px'}}>
+        <label style={{fontWeight: 'bold', display: 'block'}}>📅 Unlock Date (Optional)</label>
+        <p style={{fontSize: '12px', color: '#666', margin: '5px 0 10px'}}>
+          If you pick a date, the video will be <b>locked</b> until then.
+        </p>
+        <input 
+          type="date" 
+          onChange={(e) => setUnlockDate(e.target.value)}
+          style={{width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ccc'}}
+        />
+      </div>
       
-      {uploading && <p>Uploading... please wait...</p>}
+      {uploading && <h3 style={{color: '#e84118', marginTop: '20px'}}>Uploading... please wait...</h3>}
     </div>
   )
 }
