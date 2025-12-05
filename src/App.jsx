@@ -80,7 +80,7 @@ function LandingPage() {
         <div style={{marginBottom: '30px'}}>
           <img src="/logo.png" alt="Logo" style={styles.logoImage} />
           <h1 style={styles.title}>PaperPlay</h1>
-          <p style={styles.subtitle}>Digital Memories on Paper</p>
+          <p style={styles.subtitle}>Greatest Letter Maker</p>
         </div>
 
         {/* SMART TRACKING SECTION */}

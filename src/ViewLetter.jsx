@@ -70,7 +70,7 @@ export default function ViewLetter() {
           <div style={styles.timeUnit}><h1>{hours}</h1><small>HRS</small></div>
           <div style={styles.timeUnit}><h1>{minutes}</h1><small>MINS</small></div>
         </div>
-        <p style={{color:'#777', marginTop:'20px'}}>Patience is a virtue! ✨</p>
+        <p style={{color:'#777', marginTop:'20px'}}>Excited yarn? ✨</p>
       </div>
     )
   }
