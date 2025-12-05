@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 import Scan from './Scan'
 import Admin from './Admin'
+import RequestForm from './RequestForm'
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/:id" element={<Scan />} />
+        <Route path="/request" element={<RequestForm />} />
       </Routes>
     </div>
   )
@@ -36,6 +38,24 @@ function LandingPage() {
             "may ilalagay akong notes dito wait lang haha"
           </p>
         </div>
+        {/* REQUEST BUTTON */}
+<div style={{ marginBottom: '30px' }}>
+  <a href="/request" style={{ textDecoration: 'none' }}>
+    <button style={{
+      background: 'black',
+      color: 'white',
+      padding: '16px',
+      width: '100%',
+      borderRadius: '12px',
+      fontSize: '16px',
+      fontWeight: 'bold',
+      cursor: 'pointer',
+      boxShadow: '0 10px 20px rgba(0,0,0,0.1)'
+    }}>
+      ✍️ Request a Letter
+    </button>
+  </a>
+</div>
 
         <div style={styles.contactSection}>
           <p style={styles.contactLabel}>Get your QR's:</p>
