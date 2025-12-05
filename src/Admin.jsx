@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient'
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
-  const [activeTab, setActiveTab] = useState('factory') // 'factory' or 'inbox'
+  const [activeTab, setActiveTab] = useState('factory') // 'factory', 'inbox', 'digital'
 
   // --- STICKER FACTORY STATES ---
   const [baseUrl, setBaseUrl] = useState('https://paperplay-nu.vercel.app') 
@@ -19,13 +19,16 @@ export default function Admin() {
   // --- ORDER INBOX STATES ---
   const [requests, setRequests] = useState([])
 
+  // --- DIGITAL LETTER STATES (NEW) ---
+  const [digitalLetters, setDigitalLetters] = useState([])
+  const [viewLetter, setViewLetter] = useState(null) // To read a letter
+
   // 1. INITIAL LOAD
   useEffect(() => {
     const session = sessionStorage.getItem('paperplay_admin_session')
     if (session === 'true') {
       setIsAuthenticated(true)
-      fetchCodes()
-      fetchRequests()
+      fetchAllData()
     }
   }, [])
 
@@ -36,8 +39,7 @@ export default function Admin() {
     if (passwordInput === secret) {
       setIsAuthenticated(true)
       sessionStorage.setItem('paperplay_admin_session', 'true')
-      fetchCodes()
-      fetchRequests()
+      fetchAllData()
     } else {
       alert('Wrong Password 🔒')
     }
@@ -46,6 +48,12 @@ export default function Admin() {
   function handleLogout() {
     setIsAuthenticated(false)
     sessionStorage.removeItem('paperplay_admin_session')
+  }
+
+  function fetchAllData() {
+    fetchCodes()
+    fetchRequests()
+    fetchDigitalLetters()
   }
 
   // --- DATA FETCHING ---
@@ -57,6 +65,11 @@ export default function Admin() {
   async function fetchRequests() {
     const { data } = await supabase.from('letter_requests').select('*').order('created_at', { ascending: false })
     if (data) setRequests(data)
+  }
+
+  async function fetchDigitalLetters() {
+    const { data } = await supabase.from('digital_letters').select('*').order('created_at', { ascending: false })
+    if (data) setDigitalLetters(data)
   }
 
   // --- STICKER LOGIC ---
@@ -128,6 +141,13 @@ export default function Admin() {
     if (!error) fetchRequests()
   }
 
+  // --- DIGITAL LETTER LOGIC (NEW) ---
+  async function deleteDigitalLetter(id) {
+    if (!confirm('Delete this digital letter permanently?')) return
+    const { error } = await supabase.from('digital_letters').delete().eq('id', id)
+    if (!error) fetchDigitalLetters()
+  }
+
   // --- LOGIN SCREEN ---
   if (!isAuthenticated) {
     return (
@@ -153,28 +173,10 @@ export default function Admin() {
         
         {/* TAB SWITCHER */}
         <div style={{ background: '#e0e0e0', padding: '5px', borderRadius: '10px', display: 'flex', gap: '5px' }}>
-          <button 
-            onClick={() => setActiveTab('factory')}
-            style={{ 
-              background: activeTab === 'factory' ? 'white' : 'transparent', 
-              color: activeTab === 'factory' ? 'black' : '#666',
-              boxShadow: activeTab === 'factory' ? '0 2px 5px rgba(0,0,0,0.1)' : 'none',
-              padding: '8px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' 
-            }}
-          >
-            Sticker Factory
-          </button>
-          <button 
-            onClick={() => setActiveTab('inbox')}
-            style={{ 
-              background: activeTab === 'inbox' ? 'white' : 'transparent', 
-              color: activeTab === 'inbox' ? 'black' : '#666',
-              boxShadow: activeTab === 'inbox' ? '0 2px 5px rgba(0,0,0,0.1)' : 'none',
-              padding: '8px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' 
-            }}
-          >
-            Inbox ({requests.filter(r => r.status === 'Pending').length})
-          </button>
+          <button onClick={() => setActiveTab('factory')} style={{ background: activeTab === 'factory' ? 'white' : 'transparent', color: activeTab === 'factory' ? 'black' : '#666', boxShadow: activeTab === 'factory' ? '0 2px 5px rgba(0,0,0,0.1)' : 'none', padding: '8px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Factory</button>
+          <button onClick={() => setActiveTab('inbox')} style={{ background: activeTab === 'inbox' ? 'white' : 'transparent', color: activeTab === 'inbox' ? 'black' : '#666', boxShadow: activeTab === 'inbox' ? '0 2px 5px rgba(0,0,0,0.1)' : 'none', padding: '8px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Inbox ({requests.filter(r => r.status === 'Pending').length})</button>
+          {/* NEW TAB BUTTON */}
+          <button onClick={() => setActiveTab('digital')} style={{ background: activeTab === 'digital' ? 'white' : 'transparent', color: activeTab === 'digital' ? 'black' : '#666', boxShadow: activeTab === 'digital' ? '0 2px 5px rgba(0,0,0,0.1)' : 'none', padding: '8px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Digital Letters ({digitalLetters.length})</button>
         </div>
 
         <button onClick={handleLogout} style={{ background: '#ff7675', color: 'white', padding: '8px 15px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>Logout</button>
@@ -185,7 +187,6 @@ export default function Admin() {
          ======================= */}
       {activeTab === 'factory' && (
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-          {/* Controls & Preview Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '25px', marginBottom: '30px' }}>
             <div className="no-print" style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', height: 'fit-content' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#555' }}>Generate</h4>
@@ -209,7 +210,6 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Database Table */}
           <div className="no-print" style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h4 style={{ margin: 0, color: '#555' }}>Sticker Database</h4>
@@ -263,42 +263,25 @@ export default function Admin() {
               <h3 style={{ margin: 0 }}>📩 Incoming Requests</h3>
               <button onClick={fetchRequests} style={{ background: 'white', border: '1px solid #ccc', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>Refresh</button>
             </div>
-
             <div style={{ display: 'grid', gap: '15px' }}>
               {requests.map(req => (
                 <div key={req.id} style={{ border: '1px solid #eee', padding: '20px', borderRadius: '12px', background: req.status === 'Done' ? '#f9f9f9' : 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  
-                  {/* Order Details */}
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
                       <span style={{ fontWeight: 'bold', fontSize: '18px', color: '#2d3436' }}>{req.letter_type}</span>
                       <span style={{ fontSize: '12px', background: '#dfe6e9', padding: '2px 8px', borderRadius: '10px' }}>{req.category}</span>
                       <span style={{ fontSize: '12px', background: '#ffeaa7', padding: '2px 8px', borderRadius: '10px', fontFamily: 'monospace' }}>Ticket: {req.ticket_code}</span>
                     </div>
-                    <p style={{ margin: '0 0 5px 0', color: '#636e72', fontSize: '14px' }}>
-                      Customer: <strong>{req.customer_name}</strong> ({req.customer_age} y/o)
-                    </p>
-                    <p style={{ margin: 0, color: '#0984e3', fontSize: '14px', cursor: 'pointer' }} onClick={() => window.open(req.contact_link.includes('http') ? req.contact_link : `https://${req.contact_link}`, '_blank')}>
-                      🔗 {req.contact_link}
-                    </p>
+                    <p style={{ margin: '0 0 5px 0', color: '#636e72', fontSize: '14px' }}>Customer: <strong>{req.customer_name}</strong> ({req.customer_age} y/o)</p>
+                    <p style={{ margin: 0, color: '#0984e3', fontSize: '14px', cursor: 'pointer' }} onClick={() => window.open(req.contact_link.includes('http') ? req.contact_link : `https://${req.contact_link}`, '_blank')}>🔗 {req.contact_link}</p>
                   </div>
-
-                  {/* Actions */}
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ marginBottom: '10px' }}>
-                      {req.status === 'Pending' ? (
-                        <span style={{ background: '#ffeaa7', color: '#d35400', padding: '5px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>⏳ Pending</span>
-                      ) : (
-                        <span style={{ background: '#55efc4', color: '#00b894', padding: '5px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>✅ Done</span>
-                      )}
+                      {req.status === 'Pending' ? <span style={{ background: '#ffeaa7', color: '#d35400', padding: '5px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>⏳ Pending</span> : <span style={{ background: '#55efc4', color: '#00b894', padding: '5px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>✅ Done</span>}
                     </div>
-                    
-                    {req.status === 'Pending' && (
-                      <button onClick={() => markRequestDone(req.id)} style={{ background: '#00b894', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', marginRight: '5px', fontSize: '12px' }}>Mark Done</button>
-                    )}
+                    {req.status === 'Pending' && <button onClick={() => markRequestDone(req.id)} style={{ background: '#00b894', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', marginRight: '5px', fontSize: '12px' }}>Mark Done</button>}
                     <button onClick={() => deleteRequest(req.id)} style={{ background: '#ff7675', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
                   </div>
-
                 </div>
               ))}
               {requests.length === 0 && <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>No requests yet.</p>}
@@ -307,7 +290,50 @@ export default function Admin() {
         </div>
       )}
 
-      {/* --- MODALS (Video & QR) --- */}
+      {/* =======================
+          TAB 3: DIGITAL LETTERS (NEW)
+         ======================= */}
+      {activeTab === 'digital' && (
+        <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+          <div style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0 }}>💌 Digital Letters</h3>
+              <button onClick={fetchDigitalLetters} style={{ background: 'white', border: '1px solid #ccc', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>Refresh</button>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ textAlign: 'left', borderBottom: '1px solid #eee', color: '#999' }}>
+                    <th style={{ padding: '10px' }}>Sender</th>
+                    <th style={{ padding: '10px' }}>Theme</th>
+                    <th style={{ padding: '10px' }}>Ticket</th>
+                    <th style={{ padding: '10px' }}>Date</th>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {digitalLetters.map(letter => (
+                    <tr key={letter.id} style={{ borderBottom: '1px solid #f9f9f9' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#333' }}>{letter.sender_name}</td>
+                      <td style={{ padding: '10px' }}><span style={{background: '#eee', padding: '2px 8px', borderRadius: '6px', fontSize: '11px'}}>{letter.theme}</span></td>
+                      <td style={{ padding: '10px', fontFamily: 'monospace', color: '#d63031' }}>{letter.ticket_code}</td>
+                      <td style={{ padding: '10px', color: '#888' }}>{new Date(letter.created_at).toLocaleDateString()}</td>
+                      <td style={{ padding: '10px', textAlign: 'right' }}>
+                        <button onClick={() => setViewLetter(letter)} style={{ background: '#74b9ff', color: 'white', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', marginRight: '5px' }}>Read</button>
+                        <button onClick={() => deleteDigitalLetter(letter.id)} style={{ background: '#ff7675', padding: '6px 10px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>🗑️</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {digitalLetters.length === 0 && <tr><td colSpan="5" style={{textAlign:'center', padding:'20px', color:'#999'}}>No digital letters created yet.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODALS --- */}
       {previewVideo && (
         <div className="modal-overlay no-print" onClick={() => setPreviewVideo(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: 'transparent', boxShadow: 'none' }}>
@@ -328,6 +354,21 @@ export default function Admin() {
             <p style={{ fontSize: '12px', color: '#999', marginBottom: '20px', marginTop: '10px' }}>{viewQr.id}</p>
             <button className="no-print" onClick={() => window.print()} style={{ background: '#2d3436', color: 'white', width: '100%', padding: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>🖨️ Print Sticker</button>
           </div>
+        </div>
+      )}
+
+      {/* LETTER READING MODAL (NEW) */}
+      {viewLetter && (
+        <div className="modal-overlay" onClick={() => setViewLetter(null)}>
+           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+              <button onClick={() => setViewLetter(null)} style={{position: 'absolute', top: '15px', right: '15px', background: 'none', border:'none', fontSize:'20px', cursor:'pointer'}}>✕</button>
+              <h3 style={{marginTop:0}}>Letter Content</h3>
+              <p style={{textAlign:'left', fontWeight:'bold', fontSize:'12px', color:'#555'}}>From: {viewLetter.sender_name}</p>
+              <div style={{background: '#f9f9f9', padding:'15px', borderRadius:'8px', textAlign:'left', whiteSpace:'pre-wrap', maxHeight:'300px', overflowY:'auto', border:'1px solid #eee'}}>
+                {viewLetter.message_body}
+              </div>
+              <p style={{fontSize:'12px', color:'#999', marginTop:'10px'}}>Ticket: {viewLetter.ticket_code}</p>
+           </div>
         </div>
       )}
 
