@@ -147,11 +147,6 @@ export default function Admin() {
           )}
         </div>
 
-        {/* 
-            THIS LOGIC PREVENTS DUPLICATE PRINTING:
-            If 'viewQr' (popup) is open, we add "no-print" to this list.
-            This way, the printer ONLY sees the popup.
-        */}
         <div className={viewQr ? "no-print" : "printable-area"} style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
           <h4 className="no-print" style={{ marginTop: 0, marginBottom: '15px', color: '#555' }}>Preview</h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '15px' }}>
@@ -175,12 +170,12 @@ export default function Admin() {
               onClick={(e) => { e.stopPropagation(); setShowCleanupMenu(!showCleanupMenu); }}
               style={{ background: '#fff', border: '1px solid #ccc', color: '#555', fontSize: '12px', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
             >
-              ⚠️ Manage Dita ▼
+              ⚠️ Manage Data ▼
             </button>
             {showCleanupMenu && (
               <div style={{ position: 'absolute', top: '40px', right: 0, background: 'white', border: '1px solid #eee', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', width: '160px', zIndex: 100, overflow: 'hidden' }}>
-                <button onClick={deleteUsed} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: 'white', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', color: '#c0392b' }}>Cleanup Used</button>
-                <button onClick={deleteUnused} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: 'white', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', color: '#c0392b' }}>Cleanup Unused</button>
+                <button onClick={deleteUsed} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: 'white', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', color: '#d35400' }}>Cleanup Used</button>
+                <button onClick={deleteUnused} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: 'white', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', color: '#555' }}>Cleanup Unused</button>
                 <button onClick={deleteAll} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: '#fff0f0', border: 'none', cursor: 'pointer', color: '#c0392b', fontWeight: 'bold' }}>Delete ALL</button>
               </div>
             )}
@@ -207,7 +202,13 @@ export default function Admin() {
                       {hasVideo ? <span style={{ background: '#fff0f0', color: '#e17055', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>🔴 Used</span> : <span style={{ background: '#e3fafc', color: '#00cec9', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>🟢 Empty</span>}
                     </td>
                     <td style={{ padding: '12px 10px' }}>
-                      {hasVideo ? <button onClick={() => setPreviewVideo(row.video_url)} style={{ background: '#74b9ff', fontSize: '11px', padding: '6px 12px' }}>🎥 Watch</button> : <span style={{ color: '#eee' }}>—</span>}
+                      {hasVideo ? (
+                        row.allow_admin_view !== false ? (
+                          <button onClick={() => setPreviewVideo(row.video_url)} style={{ background: '#74b9ff', fontSize: '11px', padding: '6px 12px', border:'none', borderRadius:'4px', color:'white', cursor:'pointer' }}>🎥 Watch</button>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: '#999', fontStyle: 'italic' }}>🔒 Private</span>
+                        )
+                      ) : <span style={{ color: '#eee' }}>—</span>}
                     </td>
                     <td style={{ padding: '12px 10px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                       <button onClick={() => setViewQr({link: `${baseUrl}/${row.id}`, id: row.id})} style={{ background: '#a29bfe', padding: '6px 10px' }}>👁️</button>
