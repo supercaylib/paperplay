@@ -3,18 +3,51 @@ import QRCode from 'react-qr-code'
 import { supabase } from './supabaseClient'
 
 export default function Admin() {
+  // --- AUTH STATE ---
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [passwordInput, setPasswordInput] = useState('')
+
+  // --- DASHBOARD STATE ---
   const [baseUrl, setBaseUrl] = useState('https://paperplay-nu.vercel.app') 
   const [count, setCount] = useState(5)
   const [generatedCodes, setGeneratedCodes] = useState([]) 
   const [dbCodes, setDbCodes] = useState([]) 
   const [loading, setLoading] = useState(false)
-  
-  // Modals
   const [previewVideo, setPreviewVideo] = useState(null)
   const [viewQr, setViewQr] = useState(null)
 
-  useEffect(() => { fetchCodes() }, [])
+  // 1. CHECK LOGIN ON LOAD
+  useEffect(() => {
+    const session = sessionStorage.getItem('paperplay_admin_session')
+    if (session === 'true') {
+      setIsAuthenticated(true)
+      fetchCodes() // Only fetch data if logged in
+    }
+  }, [])
 
+  // 2. LOGIN FUNCTION
+  function handleLogin(e) {
+    e.preventDefault()
+    // Get password from .env or default to 'admin'
+    const secret = import.meta.env.VITE_ADMIN_PASSWORD || 'admin'
+    
+    if (passwordInput === secret) {
+      setIsAuthenticated(true)
+      sessionStorage.setItem('paperplay_admin_session', 'true') // Keep logged in until tab closes
+      fetchCodes()
+    } else {
+      alert('Wrong Password 🔒')
+      setPasswordInput('')
+    }
+  }
+
+  // 3. LOGOUT FUNCTION
+  function handleLogout() {
+    setIsAuthenticated(false)
+    sessionStorage.removeItem('paperplay_admin_session')
+  }
+
+  // --- DATA FUNCTIONS ---
   async function fetchCodes() {
     setLoading(true)
     const { data } = await supabase.from('qr_codes').select('*').order('created_at', { ascending: false })
@@ -62,15 +95,47 @@ export default function Admin() {
     alert('Copied!')
   }
 
+  // --- RENDER: LOGIN SCREEN ---
+  if (!isAuthenticated) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f2f5', fontFamily: 'Inter, sans-serif' }}>
+        <div style={{ background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '350px', width: '100%' }}>
+          <div style={{ fontSize: '40px', marginBottom: '20px' }}>🔒</div>
+          <h2 style={{ margin: '0 0 10px 0', color: '#333' }}>Admin Access</h2>
+          <p style={{ color: '#777', fontSize: '14px', marginBottom: '30px' }}>Enter password to manage PaperPlay.</p>
+          
+          <form onSubmit={handleLogin}>
+            <input 
+              type="password" 
+              placeholder="Password" 
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '20px', fontSize: '16px' }}
+            />
+            <button type="submit" style={{ width: '100%', background: 'black', color: 'white', padding: '12px', borderRadius: '8px', border: 'none', fontSize: '16px', cursor: 'pointer', fontWeight: 'bold' }}>
+              Unlock Dashboard
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  // --- RENDER: DASHBOARD (Only shown if authenticated) ---
   return (
     <div style={{ minHeight: '100vh', background: '#f8f9fa', padding: '30px', fontFamily: 'Inter, sans-serif' }}>
       
       {/* HEADER */}
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', maxWidth: '1100px', margin: '0 auto 30px' }}>
         <h2 style={{ margin: 0, color: '#333' }}>🖨️ Admin</h2>
-        <button onClick={() => window.location.reload()} style={{ background: 'white', color: '#333', border: '1px solid #ddd' }}>
-          🔄 Refresh
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={() => window.location.reload()} style={{ background: 'white', color: '#333', border: '1px solid #ddd' }}>
+            🔄 Refresh
+          </button>
+          <button onClick={handleLogout} style={{ background: '#ff7675', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="no-print" style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '25px', maxWidth: '1100px', margin: '0 auto' }}>
@@ -112,7 +177,6 @@ export default function Admin() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h4 style={{ margin: 0, color: '#555' }}>Database ({dbCodes.length})</h4>
           
-          {/* SMALLER CLEANUP BUTTON */}
           {dbCodes.some(c => c.video_url) && (
             <button onClick={deleteAllUnavailable} style={{ background: '#ff7675', fontSize: '12px', padding: '6px 12px' }}>
               🗑️ Cleanup Used
