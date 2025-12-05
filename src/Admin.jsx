@@ -3,23 +3,17 @@ import QRCode from 'react-qr-code'
 import { supabase } from './supabaseClient'
 
 export default function Admin() {
-  // --- AUTH STATE ---
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
-
-  // --- DASHBOARD STATE ---
   const [baseUrl, setBaseUrl] = useState('https://paperplay-nu.vercel.app') 
   const [count, setCount] = useState(5)
   const [generatedCodes, setGeneratedCodes] = useState([]) 
   const [dbCodes, setDbCodes] = useState([]) 
   const [loading, setLoading] = useState(false)
-  
-  // MODALS & MENUS
   const [previewVideo, setPreviewVideo] = useState(null)
   const [viewQr, setViewQr] = useState(null)
-  const [showCleanupMenu, setShowCleanupMenu] = useState(false) // Toggle for the cleanup dropdown
+  const [showCleanupMenu, setShowCleanupMenu] = useState(false)
 
-  // 1. CHECK LOGIN
   useEffect(() => {
     const session = sessionStorage.getItem('paperplay_admin_session')
     if (session === 'true') {
@@ -45,7 +39,6 @@ export default function Admin() {
     sessionStorage.removeItem('paperplay_admin_session')
   }
 
-  // --- DATA FUNCTIONS ---
   async function fetchCodes() {
     setLoading(true)
     const { data } = await supabase.from('qr_codes').select('*').order('created_at', { ascending: false })
@@ -55,10 +48,6 @@ export default function Admin() {
 
   async function generateAndSave() {
     if (!baseUrl) return alert('URL is required')
-    
-    // ------------------------------------------
-    // FIX 3: CONFIRMATION BEFORE GENERATING
-    // ------------------------------------------
     if (!confirm(`Are you sure you want to generate ${count} new QR codes?`)) return
 
     const batchId = Date.now().toString().slice(-6)
@@ -91,14 +80,11 @@ export default function Admin() {
     alert('Copied!')
   }
 
-  // --- CLEANUP FUNCTIONS (GROUPED) ---
-
   async function deleteUsed() {
     setShowCleanupMenu(false)
     const count = dbCodes.filter(c => c.video_url).length
     if (count === 0) return alert('No used stickers found.')
     if (!confirm(`Delete ${count} used stickers?`)) return
-
     const { error } = await supabase.from('qr_codes').delete().not('video_url', 'is', null)
     if (!error) { alert('Cleaned up used stickers.'); fetchCodes(); }
   }
@@ -107,8 +93,7 @@ export default function Admin() {
     setShowCleanupMenu(false)
     const count = dbCodes.filter(c => !c.video_url).length
     if (count === 0) return alert('No unused stickers found.')
-    if (!confirm(`⚠️ Delete ${count} UNUSED stickers? (This will break printed codes that haven't been used yet)`)) return
-
+    if (!confirm(`⚠️ Delete ${count} UNUSED stickers?`)) return
     const { error } = await supabase.from('qr_codes').delete().is('video_url', null)
     if (!error) { alert('Cleaned up unused stickers.'); fetchCodes(); }
   }
@@ -116,15 +101,12 @@ export default function Admin() {
   async function deleteAll() {
     setShowCleanupMenu(false)
     if (dbCodes.length === 0) return
-    const input = prompt("⚠️ DANGER: Type 'DELETE' to wipe the entire database.")
+    const input = prompt("⚠️ DANGER: Type 'DELETE' to wipe the database.")
     if (input !== 'DELETE') return
-
-    const { error } = await supabase.from('qr_codes').delete().neq('id', '0') // Deletes all rows
+    const { error } = await supabase.from('qr_codes').delete().neq('id', '0')
     if (!error) { alert('Database wiped.'); fetchCodes(); }
   }
 
-
-  // --- RENDER: LOGIN ---
   if (!isAuthenticated) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f0f2f5', fontFamily: 'Inter, sans-serif' }}>
@@ -140,11 +122,9 @@ export default function Admin() {
     )
   }
 
-  // --- RENDER: DASHBOARD ---
   return (
     <div style={{ minHeight: '100vh', background: '#f8f9fa', padding: '30px', fontFamily: 'Inter, sans-serif' }} onClick={() => setShowCleanupMenu(false)}>
       
-      {/* HEADER */}
       <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', maxWidth: '1100px', margin: '0 auto 30px' }}>
         <h2 style={{ margin: 0, color: '#333' }}>🖨️ Admin</h2>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -155,7 +135,6 @@ export default function Admin() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '25px', maxWidth: '1100px', margin: '0 auto' }}>
         
-        {/* LEFT: CONTROLS */}
         <div className="no-print" style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', height: 'fit-content' }}>
           <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#555' }}>Generate</h4>
           <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#777' }}>Base URL</label>
@@ -168,8 +147,12 @@ export default function Admin() {
           )}
         </div>
 
-        {/* RIGHT: PREVIEW */}
-        <div className="printable-area" style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
+        {/* 
+            THIS LOGIC PREVENTS DUPLICATE PRINTING:
+            If 'viewQr' (popup) is open, we add "no-print" to this list.
+            This way, the printer ONLY sees the popup.
+        */}
+        <div className={viewQr ? "no-print" : "printable-area"} style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
           <h4 className="no-print" style={{ marginTop: 0, marginBottom: '15px', color: '#555' }}>Preview</h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '15px' }}>
             {generatedCodes.map(item => (
@@ -183,37 +166,22 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* DATABASE TABLE */}
       <div className="no-print" style={{ maxWidth: '1100px', margin: '30px auto', background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h4 style={{ margin: 0, color: '#555' }}>Database ({dbCodes.length})</h4>
           
-          {/* ------------------------------------------
-              FIX 2: CLEANUP COLLAPSE MENU
-             ------------------------------------------ */}
           <div style={{ position: 'relative' }}>
             <button 
               onClick={(e) => { e.stopPropagation(); setShowCleanupMenu(!showCleanupMenu); }}
               style={{ background: '#fff', border: '1px solid #ccc', color: '#555', fontSize: '12px', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
             >
-              ⚠️ Manage Data ▼
+              ⚠️ Manage Dita ▼
             </button>
-
             {showCleanupMenu && (
-              <div style={{ 
-                position: 'absolute', top: '40px', right: 0, background: 'white', 
-                border: '1px solid #eee', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-                width: '160px', zIndex: 100, overflow: 'hidden'
-              }}>
-                <button onClick={deleteUsed} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: 'white', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', color: '#d35400' }}>
-                  Cleanup Used
-                </button>
-                <button onClick={deleteUnused} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: 'white', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', color: '#555' }}>
-                  Cleanup Unused
-                </button>
-                <button onClick={deleteAll} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: '#fff0f0', border: 'none', cursor: 'pointer', color: '#c0392b', fontWeight: 'bold' }}>
-                  Delete ALL
-                </button>
+              <div style={{ position: 'absolute', top: '40px', right: 0, background: 'white', border: '1px solid #eee', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', width: '160px', zIndex: 100, overflow: 'hidden' }}>
+                <button onClick={deleteUsed} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: 'white', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', color: '#c0392b' }}>Cleanup Used</button>
+                <button onClick={deleteUnused} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: 'white', border: 'none', borderBottom: '1px solid #f5f5f5', cursor: 'pointer', color: '#c0392b' }}>Cleanup Unused</button>
+                <button onClick={deleteAll} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px', background: '#fff0f0', border: 'none', cursor: 'pointer', color: '#c0392b', fontWeight: 'bold' }}>Delete ALL</button>
               </div>
             )}
           </div>
@@ -254,7 +222,6 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* MODALS */}
       {previewVideo && (
         <div className="modal-overlay no-print" onClick={() => setPreviewVideo(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: 'transparent', boxShadow: 'none' }}>
@@ -267,47 +234,13 @@ export default function Admin() {
       {viewQr && (
         <div className="modal-overlay" onClick={() => setViewQr(null)}>
           <div className="modal-content printable-modal" onClick={e => e.stopPropagation()} style={{ position: 'relative', padding: '40px 30px 30px' }}>
-            
-            {/* ------------------------------------------
-                FIX 1: CLOSE 'X' ALIGNMENT
-                Now positioned absolutely inside the box
-               ------------------------------------------ */}
-            <button 
-              className="no-print"
-              onClick={() => setViewQr(null)} 
-              style={{ 
-                position: 'absolute', 
-                top: '15px', 
-                right: '15px', 
-                background: 'transparent', // Transparent to look clean
-                color: '#999', 
-                fontSize: '20px',
-                width: '30px', 
-                height: '30px', 
-                borderRadius: '50%',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = '#f1f1f1'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-            >
-              ✕
-            </button>
-
+            <button className="no-print" onClick={() => setViewQr(null)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', color: '#999', fontSize: '20px', width: '30px', height: '30px', borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseOver={(e) => e.currentTarget.style.background = '#f1f1f1'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>✕</button>
             <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Scan Code</h3>
-            
             <div style={{ padding: '20px', background: 'white', borderRadius: '12px', display: 'inline-block', border: '1px dashed #ccc' }}>
               <QRCode value={viewQr.link} size={180} />
             </div>
-            
             <p style={{ fontSize: '12px', color: '#999', marginBottom: '20px', marginTop: '10px' }}>{viewQr.id}</p>
-            
-            <button className="no-print" onClick={() => window.print()} style={{ background: '#2d3436', color: 'white', width: '100%', padding: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              🖨️ Print Sticker
-            </button>
+            <button className="no-print" onClick={() => window.print()} style={{ background: '#2d3436', color: 'white', width: '100%', padding: '12px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>🖨️ Print Sticker</button>
           </div>
         </div>
       )}
