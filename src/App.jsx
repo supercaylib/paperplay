@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
+import { supabase } from './supabaseClient'
 import Scan from './Scan'
 import Admin from './Admin'
 import RequestForm from './RequestForm'
 import ComposeLetter from './ComposeLetter'
 import ViewLetter from './ViewLetter'
-import OrderStatus from './OrderStatus' // <--- NEW PAGE
+import OrderStatus from './OrderStatus'
 
 function App() {
   return (
@@ -13,7 +14,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/request" element={<RequestForm />} />
-        <Route path="/status/:ticket" element={<OrderStatus />} /> {/* <--- NEW ROUTE */}
+        <Route path="/status/:ticket" element={<OrderStatus />} />
         <Route path="/create" element={<ComposeLetter />} />
         <Route path="/view/:ticket" element={<ViewLetter />} />
         <Route path="/admin" element={<Admin />} />
@@ -25,13 +26,51 @@ function App() {
 
 function LandingPage() {
   const navigate = useNavigate()
+  
+  // TRACKING STATE
   const [ticketInput, setTicketInput] = useState('')
+  const [orderStatus, setOrderStatus] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  function handleTrack() {
+  async function checkTicket() {
     if (!ticketInput) return
-    // Directly navigate to the status page.
-    // The Status Page will handle loading and checking if it exists.
-    navigate(`/status/${ticketInput.toUpperCase()}`) 
+    setLoading(true)
+    setOrderStatus(null)
+    
+    const code = ticketInput.toUpperCase().trim()
+
+    // 1. First, check if it's a PHYSICAL Request (e.g. REQ-123456)
+    // We look in 'letter_requests'
+    let { data: reqData } = await supabase
+      .from('letter_requests')
+      .select('ticket_code')
+      .eq('ticket_code', code)
+      .single()
+
+    if (reqData) {
+      setLoading(false)
+      // Found it! Go to the Order Status page
+      navigate(`/status/${code}`)
+      return
+    }
+
+    // 2. If not, check if it's a DIGITAL Letter (e.g. A3F9Z1)
+    // We look in 'digital_letters'
+    let { data: digitalData } = await supabase
+      .from('digital_letters')
+      .select('ticket_code')
+      .eq('ticket_code', code)
+      .single()
+      
+    setLoading(false)
+
+    if (digitalData) {
+      // Found it! Go to the Letter Viewer page
+      navigate(`/view/${code}`)
+    } else {
+      // 3. Not found in either table
+      setOrderStatus('NotFound')
+    }
   }
 
   return (
@@ -44,44 +83,57 @@ function LandingPage() {
           <p style={styles.subtitle}>Digital Memories on Paper</p>
         </div>
 
-        {/* TRACKING SECTION */}
+        {/* SMART TRACKING SECTION */}
         <div style={styles.section}>
-          <label style={styles.label}>TRACK / VIEW</label>
+          <label style={styles.label}>ENTER TICKET CODE</label>
           <div style={styles.inputGroup}>
             <div style={styles.iconContainer}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             </div>
             <input 
               type="text" 
-              placeholder="Enter Ticket Code" 
+              placeholder="e.g. REQ-123 or A1B2C3" 
               value={ticketInput}
               onChange={(e) => setTicketInput(e.target.value.toUpperCase())}
               style={styles.input}
             />
-            <button onClick={handleTrack} style={styles.arrowBtn}>→</button>
+            <button onClick={checkTicket} style={styles.arrowBtn} disabled={loading}>
+              {loading ? '...' : '→'}
+            </button>
           </div>
+
+          {orderStatus === 'NotFound' && (
+            <div style={styles.statusError}>
+              🚫 <strong>Ticket Not Found</strong><br/>
+              Check if you typed it correctly.
+            </div>
+          )}
         </div>
 
         <hr style={styles.divider} />
 
         {/* SERVICES SECTION */}
         <div style={styles.section}>
-          <label style={styles.label}>SERVICES</label>
+          <label style={styles.label}>CREATE NEW</label>
           
           <div style={{ display: 'grid', gap: '15px' }}>
+            
+            {/* PHYSICAL REQUEST */}
             <a href="/request" style={{ textDecoration: 'none' }}>
               <button style={styles.actionBtnOutline}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="M2 2l7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
-                <span>Request Letter Service</span>
+                <span>Request Physical Letter</span>
               </button>
             </a>
 
+            {/* DIGITAL LETTER */}
             <a href="/create" style={{ textDecoration: 'none' }}>
               <button style={styles.actionBtnSolid}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                 <span>Create Digital Letter</span>
               </button>
             </a>
+
           </div>
         </div>
 
@@ -106,6 +158,7 @@ const styles = {
   iconContainer: { padding: '0 10px', display: 'flex', alignItems: 'center', opacity: 0.5 },
   input: { border: 'none', background: 'transparent', width: '100%', padding: '10px 0', outline: 'none', fontSize: '15px', color: '#333' },
   arrowBtn: { background: '#1a1a1a', color: 'white', border: 'none', borderRadius: '8px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' },
+  statusError: { marginTop:'10px', fontSize:'13px', color:'#c0392b', background:'#ffebee', padding:'10px', borderRadius:'8px', textAlign:'center' },
   divider: { border: 'none', borderTop: '1px solid #f0f0f0', margin: '30px 0' },
   actionBtnOutline: { width: '100%', padding: '14px', borderRadius: '12px', cursor: 'pointer', background: 'white', border: '1px solid #e0e0e0', color: '#333', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: 'all 0.2s' },
   actionBtnSolid: { width: '100%', padding: '14px', borderRadius: '12px', cursor: 'pointer', background: '#1a1a1a', border: 'none', color: 'white', fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' },
