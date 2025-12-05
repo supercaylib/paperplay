@@ -121,27 +121,22 @@ export default function Admin() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '25px', maxWidth: '1100px', margin: '0 auto' }}>
         
-        {/* LEFT: CONTROLS (Hidden on print) */}
+        {/* LEFT: CONTROLS */}
         <div className="no-print" style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)', height: 'fit-content' }}>
           <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#555' }}>Generate</h4>
-          
           <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#777' }}>Base URL</label>
           <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} style={{ padding: '10px', width: '100%', marginBottom: '15px', border: '1px solid #eee', borderRadius: '8px', fontSize: '13px' }} />
-          
           <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#777' }}>Quantity</label>
           <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} style={{ padding: '10px', width: '100%', marginBottom: '20px', border: '1px solid #eee', borderRadius: '8px', fontSize: '13px' }} />
-          
           <button onClick={generateAndSave} style={{ background: '#2d3436', width: '100%' }}>Generate</button>
-          
           {generatedCodes.length > 0 && (
-             <button onClick={() => window.print()} style={{ background: '#0984e3', width: '100%', marginTop: '10px' }}>🖨️ Print</button>
+             <button onClick={() => window.print()} style={{ background: '#0984e3', width: '100%', marginTop: '10px' }}>🖨️ Print Batch</button>
           )}
         </div>
 
-        {/* RIGHT: PREVIEW (THIS IS WHAT PRINTS) */}
+        {/* RIGHT: PREVIEW (Batch Print Area) */}
         <div className="printable-area" style={{ background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
           <h4 className="no-print" style={{ marginTop: 0, marginBottom: '15px', color: '#555' }}>Preview</h4>
-          
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '15px' }}>
             {generatedCodes.map(item => (
               <div key={item.id} style={{ border: '1px dashed #ddd', padding: '10px', textAlign: 'center', borderRadius: '8px' }}>
@@ -154,7 +149,7 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* DATABASE TABLE (Hidden on print) */}
+      {/* DATABASE TABLE */}
       <div className="no-print" style={{ maxWidth: '1100px', margin: '30px auto', background: 'white', padding: '25px', borderRadius: '16px', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
           <h4 style={{ margin: 0, color: '#555' }}>Database ({dbCodes.length})</h4>
@@ -162,7 +157,6 @@ export default function Admin() {
             <button onClick={deleteAllUnavailable} style={{ background: '#ff7675', fontSize: '12px', padding: '6px 12px' }}>🗑️ Cleanup Used</button>
           )}
         </div>
-        
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
@@ -198,7 +192,9 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* MODALS (Hidden on print) */}
+      {/* --- MODALS --- */}
+
+      {/* 1. VIDEO MODAL */}
       {previewVideo && (
         <div className="modal-overlay no-print" onClick={() => setPreviewVideo(null)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: 'transparent', boxShadow: 'none' }}>
@@ -208,52 +204,115 @@ export default function Admin() {
         </div>
       )}
 
+      {/* 2. QR CODE MODAL (SINGLE PRINT) */}
       {viewQr && (
-        <div className="modal-overlay no-print" onClick={() => setViewQr(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, color: '#333' }}>Scan Code</h3>
-            <div style={{ padding: '20px', background: '#f9f9f9', borderRadius: '12px', display: 'inline-block' }}>
+        <div className="modal-overlay" onClick={() => setViewQr(null)}>
+          {/* Added 'printable-modal' class for the CSS to find */}
+          <div className="modal-content printable-modal" onClick={e => e.stopPropagation()}>
+            
+            {/* CLOSE 'X' BUTTON (Top Right) */}
+            <button 
+              className="no-print"
+              onClick={() => setViewQr(null)} 
+              style={{ 
+                position: 'absolute', 
+                top: '15px', 
+                right: '15px', 
+                background: '#f1f2f6', 
+                color: '#333', 
+                width: '30px', 
+                height: '30px', 
+                borderRadius: '50%',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              ✕
+            </button>
+
+            <h3 style={{ marginTop: '10px', color: '#333' }}>Scan Code</h3>
+            
+            <div style={{ padding: '20px', background: 'white', borderRadius: '12px', display: 'inline-block', border: '1px dashed #ccc' }}>
               <QRCode value={viewQr.link} size={180} />
             </div>
-            <p style={{ fontSize: '12px', color: '#999', marginBottom: '20px' }}>{viewQr.id}</p>
-            <button onClick={() => setViewQr(null)} style={{ background: '#eee', color: '#333', width: '100%' }}>Close</button>
+            
+            <p style={{ fontSize: '12px', color: '#999', marginBottom: '20px', marginTop: '10px' }}>{viewQr.id}</p>
+            
+            {/* PRINT BUTTON (Replaces Close Button) */}
+            <button 
+              className="no-print"
+              onClick={() => window.print()} 
+              style={{ 
+                background: '#2d3436', 
+                color: 'white', 
+                width: '100%', 
+                padding: '12px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              🖨️ Print Sticker
+            </button>
           </div>
         </div>
       )}
 
-      {/* PRINT STYLES - THIS IS THE CRITICAL FIX */}
+      {/* PRINT STYLES - REFINED FOR SINGLE vs BATCH */}
       <style>{`
         @media print {
-          /* Hide EVERYTHING first */
+          /* 1. Hide EVERYTHING by default */
           body * {
             visibility: hidden;
           }
           
-          /* Show ONLY the printable-area and its children */
+          /* 2. SCENARIO A: Printing the Single QR Modal */
+          /* If the modal exists, make it visible and hide the batch list */
+          .printable-modal, .printable-modal * {
+            visibility: visible;
+          }
+          .printable-modal {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: auto;
+            height: auto;
+            box-shadow: none;
+            border: none;
+            overflow: visible;
+          }
+
+          /* 3. SCENARIO B: Printing the Batch List */
+          /* Only show this if the modal is NOT open (we use logic to hide it if modal is open, but CSS cascading handles the rest usually) */
+          /* Actually, simply: If I click print on the main page, .printable-modal isn't there, so we target .printable-area */
+          
           .printable-area, .printable-area * {
             visibility: visible;
           }
-
-          /* Position the printable area at the top left of the paper */
+          
+          /* BUT, if we are printing the modal, we don't want the area behind it cluttering. 
+             Since 'visibility: visible' on the child overrides the parent hidden, 
+             we rely on the fact that the modal covers the center. 
+             However, to be cleaner: */
+             
           .printable-area {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
-            margin: 0;
-            padding: 0;
-            background: white;
-            box-shadow: none !important;
           }
-
-          /* Ensure the grid looks good on paper */
+          
           .printable-area > div {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr) !important; /* Force 4 columns on paper */
-            gap: 20px;
+             display: grid;
+             grid-template-columns: repeat(4, 1fr) !important;
+             gap: 20px;
           }
 
-          /* Hide elements explicitly marked no-print */
+          /* 4. Hide Buttons inside printable areas */
           .no-print {
             display: none !important;
           }
