@@ -653,50 +653,50 @@ a { text-decoration: none; }
    CUSTOM CHRISTMAS THEME
    ============================== */
 
-/* Import a magical Christmas font */
+/* 1. Import the Font (Must be at the top of the file ideally) */
 @import url('https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@400;700&display=swap');
 
-/* The specific class for this theme */
 .theme-christmas {
-  /* 1. The Image */
-  background-image: url('/christmas-bg.png'); /* Make sure filename matches! */
-  background-size: 100% 100%; /* Stretch to fill the container */
+  /* IMAGE SETTINGS */
+  background-image: url('/christmas-bg.png'); 
+  background-size: 100% 100%;
   background-position: center;
   background-repeat: no-repeat;
-  background-color: transparent; /* Remove any white background */
+  
+  /* FALLBACK COLOR: If image fails, show this beige paper color instead of transparent */
+  background-color: #f4e4bc; 
+  
+  /* DIMENSIONS: Ensure it has shape even if empty */
+  min-height: 600px;
+  width: 100%;
+  max-width: 500px;
 
-  /* 2. The Safe Zones (Padding) 
-     Calculated based on your image obstacles:
-     - Top: To clear the top scroll & star
-     - Bottom: To clear the bottom scroll & star
-     - Left: To clear the Christmas Tree
-     - Right: To clear the ragged edge */
+  /* SAFE ZONES (Padding) */
   padding-top: 110px !important;
   padding-bottom: 110px !important;
-  padding-left: 120px !important; 
+  padding-left: 100px !important; 
   padding-right: 80px !important;
 
-  /* 3. Text Style */
-  font-family: 'Mountains of Christmas', cursive !important;
-  font-size: 22px !important;
-  line-height: 1.6 !important;
-  color: #2d3436 !important; /* Dark Grey for readability on the grey scroll */
+  /* TEXT STYLE */
+  font-family: 'Mountains of Christmas', cursive, 'Georgia', serif !important;
+  font-size: 24px !important;
+  line-height: 1.5 !important;
+  color: #2d3436 !important; 
   font-weight: 700;
   
-  /* Remove the default white box shadow since the image has its own shadows */
+  /* Clean up borders */
   box-shadow: none !important;
   border: none !important;
 }
 
-/* Mobile Tweaks for the Scroll */
+/* Mobile Tweaks */
 @media (max-width: 600px) {
   .theme-christmas {
     background-size: 100% 100%;
-    /* On phone, we need less padding to fit text, 
-       but we accept it might touch the tree slightly */
-    padding-top: 80px !important;
-    padding-bottom: 80px !important;
-    padding-left: 70px !important;
+    /* Tighter padding for phones */
+    padding-top: 90px !important;
+    padding-bottom: 90px !important;
+    padding-left: 60px !important;
     padding-right: 50px !important;
     font-size: 18px !important;
   }
