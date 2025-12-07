@@ -93,7 +93,7 @@ export default function Admin() {
   // --- CLEANUP ACTIONS ---
   async function deleteUsed() { if(confirm('Delete all USED codes?')) { await supabase.from('qr_codes').delete().not('video_url', 'is', null); fetchCodes(); } }
   async function deleteUnused() { if(confirm('Delete all UNUSED codes?')) { await supabase.from('qr_codes').delete().is('video_url', null); fetchCodes(); } }
-  async function deleteAllStickers() { if(confirm('DANGER: Delete ALL stickers?')) { await supabase.from('qr_codes').delete().neq('id', '0'); fetchCodes(); } }
+  async function deleteAllStickers() { if(confirm('⚠️ DANGER: Are you sure you want to DELETE ALL QR CODES? This will break printed stickers.')) { await supabase.from('qr_codes').delete().neq('id', '0'); fetchCodes(); } }
 
   // --- INBOX ACTIONS ---
   async function updateStatus(id, newStatus) {
@@ -107,14 +107,20 @@ export default function Admin() {
   }
   
   async function deleteAllRequests() { 
-    if(confirm('Clear Inbox?')) { await supabase.from('letter_requests').delete().neq('id', 0); fetchRequests(); } 
+    if(confirm('⚠️ DANGER: This will delete ALL ORDERS (History & Active). Continue?')) { await supabase.from('letter_requests').delete().neq('id', 0); fetchRequests(); } 
   }
 
   // --- DIGITAL LETTER ACTIONS ---
   async function deleteDigitalLetter(id) { if(confirm('Delete letter?')) { await supabase.from('digital_letters').delete().eq('id', id); fetchDigitalLetters(); } }
-  async function deleteAllDigitalLetters() { if(confirm('Clear All Letters?')) { await supabase.from('digital_letters').delete().neq('id', 0); fetchDigitalLetters(); } }
+  async function deleteAllDigitalLetters() { if(confirm('⚠️ DANGER: Delete ALL digital letters?')) { await supabase.from('digital_letters').delete().neq('id', 0); fetchDigitalLetters(); } }
 
-  // --- LOGIN VIEW (Professional Dark Mode) ---
+  // --- HELPER ---
+  function copyContact(text) {
+    navigator.clipboard.writeText(text)
+    alert(`Copied "${text}" to clipboard. Paste it in search.`)
+  }
+
+  // --- LOGIN VIEW ---
   if (!isAuthenticated) return (
     <div style={styles.loginPage}>
       <div style={styles.loginContainer}>
@@ -122,34 +128,22 @@ export default function Admin() {
           <div style={styles.logoSquare}>P</div>
           <h1 style={styles.loginTitle}>Admin Portal</h1>
         </div>
-        <p style={{color:'#6b7280', fontSize:'14px', marginBottom:'30px'}}>Please authenticate to access the system.</p>
-        
         <form onSubmit={handleLogin}>
-          <div style={{marginBottom:'20px'}}>
-             <label style={styles.loginLabel}>SECURITY PIN</label>
-             <input 
-              type="password" 
-              value={passwordInput} 
-              onChange={e => setPasswordInput(e.target.value)} 
-              style={styles.loginInput} 
-              autoFocus
-              placeholder="••••"
-            />
-          </div>
-          <button type="submit" style={styles.loginBtn}>Access Dashboard →</button>
+          <input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} style={styles.loginInput} autoFocus placeholder="Enter Security PIN" />
+          <button type="submit" style={styles.loginBtn}>Unlock System</button>
         </form>
-        <div style={{marginTop:'30px', fontSize:'12px', color:'#9ca3af'}}>
-          PaperPlay Systems v2.0
-        </div>
       </div>
     </div>
   )
 
-  // --- DASHBOARD VIEW (Sidebar Layout) ---
+  // FILTER REQUESTS FOR SPLIT VIEW
+  const activeOrders = requests.filter(r => r.status !== 'Done')
+  const historyOrders = requests.filter(r => r.status === 'Done')
+
   return (
-    <div style={styles.dashboard}>
+    <div style={styles.layout}>
       
-      {/* SIDEBAR NAVIGATION */}
+      {/* --- FIXED SIDEBAR --- */}
       <div className="no-print" style={styles.sidebar}>
         <div>
           <div style={styles.brandContainer}>
@@ -158,106 +152,63 @@ export default function Admin() {
           </div>
 
           <nav style={styles.navMenu}>
-             <div style={styles.navLabel}>MAIN</div>
+             <div style={styles.navLabel}>DASHBOARD</div>
              <button onClick={() => setActiveTab('inbox')} style={activeTab === 'inbox' ? styles.navItemActive : styles.navItem}>
                📦 Orders
-               {requests.filter(r => r.status === 'Pending').length > 0 && <span style={styles.navBadge}>{requests.filter(r => r.status === 'Pending').length}</span>}
+               {activeOrders.length > 0 && <span style={styles.navBadge}>{activeOrders.length}</span>}
              </button>
              <button onClick={() => setActiveTab('digital')} style={activeTab === 'digital' ? styles.navItemActive : styles.navItem}>
                💌 Archive
              </button>
 
-             <div style={styles.navLabel}>TOOLS</div>
+             <div style={styles.navLabel}>PRODUCTION</div>
              <button onClick={() => setActiveTab('factory')} style={activeTab === 'factory' ? styles.navItemActive : styles.navItem}>
                🏭 Factory
              </button>
           </nav>
         </div>
 
-        <button onClick={handleLogout} style={styles.logoutItem}>
-          Logout
-        </button>
+        <button onClick={handleLogout} style={styles.logoutItem}>Logout</button>
       </div>
 
-      {/* MAIN CONTENT AREA */}
+      {/* --- SCROLLABLE CONTENT --- */}
       <div style={styles.mainContent}>
         
-        {/* TOP BAR */}
-        <div className="no-print" style={styles.topBar}>
-          <h2 style={styles.pageTitle}>
-            {activeTab === 'inbox' && 'Order Management'}
-            {activeTab === 'factory' && 'QR Production Factory'}
-            {activeTab === 'digital' && 'Digital Letter Archive'}
-          </h2>
-          <div style={styles.userProfile}>
-             <div style={styles.statusDot}></div>
-             <span>Admin Online</span>
-          </div>
-        </div>
-
         {/* --- TAB 1: INBOX (ORDERS) --- */}
         {activeTab === 'inbox' && (
           <div className="fade-in">
-            {/* STATS CARDS */}
-            <div style={styles.statsGrid}>
-              <StatCard title="Total Orders" value={requests.length} icon="📦" />
-              <StatCard title="Pending" value={requests.filter(r => r.status === 'Pending').length} icon="⏳" color="#f59e0b" />
-              <StatCard title="Completed" value={requests.filter(r => r.status === 'Done').length} icon="✅" color="#10b981" />
+            <div style={styles.pageHeader}>
+              <h2 style={styles.pageTitle}>Order Management</h2>
+              <button onClick={deleteAllRequests} style={styles.dangerHeaderBtn}>🗑️ Delete All Data</button>
             </div>
 
+            {/* ACTIVE ORDERS TABLE */}
             <div style={styles.panel}>
               <div style={styles.panelHeader}>
-                <h3>Recent Orders</h3>
-                <div style={{display:'flex', gap:'10px'}}>
-                   <button onClick={fetchRequests} style={styles.outlineBtn}>Refresh Data</button>
-                </div>
+                <h3 style={styles.panelTitle}>🔥 Active Queue ({activeOrders.length})</h3>
+                <button onClick={fetchRequests} style={styles.outlineBtn}>Refresh</button>
               </div>
-              
-              <div style={styles.tableContainer}>
-                <table style={styles.table}>
-                  <thead style={styles.thead}>
-                    <tr>
-                      <th style={styles.th}>TICKET ID</th>
-                      <th style={styles.th}>CUSTOMER</th>
-                      <th style={styles.th}>TYPE</th>
-                      <th style={styles.th}>STATUS</th>
-                      <th style={styles.th}>ACTION</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {requests.map(req => (
-                      <tr key={req.id} style={styles.tr}>
-                        <td style={styles.td}><span style={styles.monoBadge}>{req.ticket_code}</span></td>
-                        <td style={styles.td}>
-                          <div style={{fontWeight:'600'}}>{req.customer_name}</div>
-                          <a href={req.contact_link.includes('http') ? req.contact_link : `https://${req.contact_link}`} target="_blank" style={styles.link}>
-                            View Contact
-                          </a>
-                        </td>
-                        <td style={styles.td}>
-                           <span style={styles.categoryBadge}>{req.category}</span>
-                           <div style={{fontSize:'12px', marginTop:'4px'}}>{req.letter_type}</div>
-                        </td>
-                        <td style={styles.td}>
-                          <select 
-                            value={req.status} 
-                            onChange={(e) => updateStatus(req.id, e.target.value)}
-                            style={{...styles.statusSelect, ...styles[`status${req.status}`]}}
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="Processing">Processing</option>
-                            <option value="Done">Completed</option>
-                          </select>
-                        </td>
-                        <td style={styles.td}>
-                          <button onClick={() => deleteRequest(req.id)} style={styles.iconBtnDanger}>🗑️</button>
-                        </td>
-                      </tr>
-                    ))}
-                    {requests.length === 0 && <tr><td colSpan="5" style={styles.emptyState}>No orders found.</td></tr>}
-                  </tbody>
-                </table>
+              <OrderTable 
+                data={activeOrders} 
+                updateStatus={updateStatus} 
+                deleteRequest={deleteRequest} 
+                copyContact={copyContact} 
+                emptyMsg="No active orders. Good job!"
+              />
+            </div>
+
+            {/* COMPLETED HISTORY TABLE */}
+            <div style={{...styles.panel, marginTop: '40px', opacity: 0.9}}>
+              <div style={styles.panelHeader}>
+                <h3 style={styles.panelTitle}>✅ Order History ({historyOrders.length})</h3>
               </div>
+              <OrderTable 
+                data={historyOrders} 
+                updateStatus={updateStatus} 
+                deleteRequest={deleteRequest} 
+                copyContact={copyContact}
+                emptyMsg="No completed orders yet."
+              />
             </div>
           </div>
         )}
@@ -265,34 +216,46 @@ export default function Admin() {
         {/* --- TAB 2: FACTORY --- */}
         {activeTab === 'factory' && (
           <div className="fade-in">
+             <div style={styles.pageHeader}>
+                <h2 style={styles.pageTitle}>QR Production</h2>
+             </div>
+
              <div style={styles.splitLayout}>
                
                {/* GENERATOR */}
-               <div style={styles.panel}>
-                  <h3 style={styles.panelTitle}>Generate QR Batch</h3>
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Base Application URL</label>
-                    <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} style={styles.input} />
-                  </div>
-                  <div style={styles.formGroup}>
-                    <label style={styles.label}>Quantity to Generate</label>
-                    <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} style={styles.input} />
-                  </div>
-                  <button onClick={generateAndSave} style={styles.primaryBtn}>Generate Batch</button>
+               <div style={{display:'flex', flexDirection:'column', gap:'20px'}}>
+                 <div style={styles.panel}>
+                    <div style={styles.panelHeader}>
+                      <h3 style={styles.panelTitle}>Generate QR Batch</h3>
+                    </div>
+                    <div style={styles.panelBody}>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>Base Application URL</label>
+                        <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} style={styles.input} />
+                      </div>
+                      <div style={styles.formGroup}>
+                        <label style={styles.label}>Quantity</label>
+                        <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} style={styles.input} />
+                      </div>
+                      <button onClick={generateAndSave} style={styles.primaryBtn}>Generate Batch</button>
+                    </div>
+                 </div>
 
-                  <div style={styles.maintenanceBox}>
-                     <h4 style={{fontSize:'12px', color:'#ef4444', marginBottom:'10px'}}>SYSTEM MAINTENANCE</h4>
-                     <div style={{display:'grid', gap:'10px'}}>
-                        <button onClick={deleteUsed} style={styles.dangerOutlineBtn}>Clean Used QRs</button>
-                        <button onClick={deleteUnused} style={styles.dangerOutlineBtn}>Clean Unused QRs</button>
-                     </div>
-                  </div>
+                 {/* MAINTENANCE BOX (RESTORED 3rd BUTTON) */}
+                 <div style={styles.maintenanceBox}>
+                    <h4 style={{fontSize:'12px', fontWeight:'800', color:'#b91c1c', marginBottom:'15px', letterSpacing:'1px'}}>DATABASE MAINTENANCE</h4>
+                    <div style={{display:'grid', gap:'10px'}}>
+                       <button onClick={deleteUsed} style={styles.maintenanceBtn}>🧹 Cleanup Used QRs</button>
+                       <button onClick={deleteUnused} style={styles.maintenanceBtn}>🧹 Cleanup Unused QRs</button>
+                       <button onClick={deleteAllStickers} style={styles.maintenanceBtnDanger}>⚠️ DELETE ALL QRs</button>
+                    </div>
+                 </div>
                </div>
 
                {/* DATABASE LIST */}
                <div style={styles.panel}>
                   <div style={styles.panelHeader}>
-                    <h3>Database ({dbCodes.length})</h3>
+                    <h3 style={styles.panelTitle}>Sticker Database ({dbCodes.length})</h3>
                     <button onClick={fetchCodes} style={styles.outlineBtn}>Refresh</button>
                   </div>
                   <div style={styles.tableContainer}>
@@ -300,7 +263,7 @@ export default function Admin() {
                       <thead style={styles.thead}>
                         <tr>
                           <th style={styles.th}>ID</th>
-                          <th style={styles.th}>STATE</th>
+                          <th style={styles.th}>STATUS</th>
                           <th style={styles.th}>ACTION</th>
                         </tr>
                       </thead>
@@ -324,7 +287,7 @@ export default function Admin() {
                </div>
              </div>
              
-             {/* PRINT AREA (Hidden) */}
+             {/* PRINT AREA */}
              <div className="printable-area" style={{display:'none'}}>
                {generatedCodes.length > 0 && (
                  <div style={styles.printHeader}>
@@ -346,9 +309,14 @@ export default function Admin() {
         {/* --- TAB 3: DIGITAL ARCHIVE --- */}
         {activeTab === 'digital' && (
           <div className="fade-in">
+            <div style={styles.pageHeader}>
+              <h2 style={styles.pageTitle}>Digital Archive</h2>
+              <button onClick={deleteAllDigitalLetters} style={styles.dangerHeaderBtn}>🗑️ Delete All Data</button>
+            </div>
+
             <div style={styles.panel}>
               <div style={styles.panelHeader}>
-                <h3>Digital Letters</h3>
+                <h3 style={styles.panelTitle}>Letters Database</h3>
                 <button onClick={fetchDigitalLetters} style={styles.outlineBtn}>Refresh</button>
               </div>
               <div style={styles.tableContainer}>
@@ -358,7 +326,7 @@ export default function Admin() {
                        <th style={styles.th}>TICKET</th>
                        <th style={styles.th}>SENDER</th>
                        <th style={styles.th}>THEME</th>
-                       <th style={styles.th}>UNLOCK DATE</th>
+                       <th style={styles.th}>UNLOCK</th>
                        <th style={styles.th}>ACTIONS</th>
                     </tr>
                   </thead>
@@ -389,7 +357,7 @@ export default function Admin() {
       {previewVideo && <Modal onClose={() => setPreviewVideo(null)}><video src={previewVideo} controls autoPlay style={{ width: '100%', borderRadius: '10px' }} /></Modal>}
       {viewQr && <Modal onClose={() => setViewQr(null)}><QRCode value={viewQr.link} size={150} /><p style={{marginTop:'15px', fontWeight:'bold', fontFamily:'monospace'}}>{viewQr.id}</p></Modal>}
       {viewLetter && <Modal onClose={() => setViewLetter(null)}>
-        <h3 style={{marginTop:0}}>Letter Preview</h3>
+        <h3 style={{marginTop:0}}>Letter Content</h3>
         <div style={{background: '#f8fafc', padding:'20px', borderRadius:'8px', textAlign:'left', whiteSpace:'pre-wrap', maxHeight:'400px', overflowY:'auto', border:'1px solid #e2e8f0', fontFamily:'serif'}}>
           {viewLetter.message_body}
         </div>
@@ -397,13 +365,9 @@ export default function Admin() {
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
-        body { margin: 0; padding: 0; }
-        * { box-sizing: border-box; }
-        
+        body { margin: 0; padding: 0; background: #f1f5f9; }
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
         @media print { 
           .no-print { display: none !important; } 
           .printable-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
@@ -413,19 +377,57 @@ export default function Admin() {
   )
 }
 
-// --- SUB-COMPONENTS ---
-const StatCard = ({ title, value, icon, color = '#3b82f6' }) => (
-  <div style={styles.statCard}>
-    <div>
-      <div style={styles.statTitle}>{title}</div>
-      <div style={styles.statValue}>{value}</div>
-    </div>
-    <div style={{...styles.statIcon, background: `${color}20`, color: color}}>{icon}</div>
+// --- SUB COMPONENTS ---
+
+const OrderTable = ({ data, updateStatus, deleteRequest, copyContact, emptyMsg }) => (
+  <div style={styles.tableContainer}>
+    <table style={styles.table}>
+      <thead style={styles.thead}>
+        <tr>
+          <th style={styles.th}>TICKET ID</th>
+          <th style={styles.th}>DETAILS</th>
+          <th style={styles.th}>CONTACT</th>
+          <th style={styles.th}>STATUS</th>
+          <th style={styles.th}>ACTION</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map(req => (
+          <tr key={req.id} style={styles.tr}>
+            <td style={styles.td}><span style={styles.monoBadge}>{req.ticket_code}</span></td>
+            <td style={styles.td}>
+               <div style={{fontWeight:'700', color:'#1e293b'}}>{req.letter_type}</div>
+               <div style={{fontSize:'12px', color:'#64748b'}}>{req.customer_name} • {req.category}</div>
+            </td>
+            <td style={styles.td}>
+               <button onClick={() => copyContact(req.contact_link)} style={styles.copyBtn}>
+                 📋 Copy Username
+               </button>
+            </td>
+            <td style={styles.td}>
+              <select 
+                value={req.status} 
+                onChange={(e) => updateStatus(req.id, e.target.value)}
+                style={{...styles.statusSelect, ...styles[`status${req.status}`]}}
+              >
+                <option value="Pending">Pending</option>
+                <option value="Processing">Processing</option>
+                <option value="Done">Completed</option>
+              </select>
+            </td>
+            <td style={styles.td}>
+              <button onClick={() => deleteRequest(req.id)} style={styles.iconBtnDanger}>🗑️</button>
+            </td>
+          </tr>
+        ))}
+        {data.length === 0 && <tr><td colSpan="5" style={styles.emptyState}>{emptyMsg}</td></tr>}
+      </tbody>
+    </table>
   </div>
 )
 
 const Badge = ({ type, children }) => {
-  const c = type === 'used' ? {bg:'#dcfce7', t:'#15803d'} : {bg:'#f3f4f6', t:'#6b7280'}
+  const c = type === 'used' ? {bg:'#dcfce7', t:'#15803d'} : {bg:'#f1f5f9', t:'#64748b'}
   return <span style={{background:c.bg, color:c.t, padding:'2px 8px', borderRadius:'12px', fontSize:'11px', fontWeight:'700'}}>{children}</span>
 }
 
@@ -437,89 +439,91 @@ const Modal = ({ onClose, children }) => (
   </div>
 )
 
-// --- PROFESSIONAL CSS-IN-JS ---
+// --- PROFESSIONAL ENTERPRISE STYLES ---
 const styles = {
-  // LOGIN SCREEN
-  loginPage: { height: '100vh', width: '100vw', background: '#111827', display: 'flex', justifyContent: 'center', alignItems: 'center', fontFamily: '"Inter", sans-serif' },
-  loginContainer: { width: '400px', background: 'rgba(31, 41, 55, 0.5)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', padding: '40px', borderRadius: '24px', textAlign: 'center' },
-  loginHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '10px' },
-  logoSquare: { width: '50px', height: '50px', background: 'white', color: 'black', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold', marginBottom: '15px' },
-  loginTitle: { color: 'white', fontSize: '24px', fontWeight: '700', margin: 0 },
-  loginLabel: { display: 'block', textAlign: 'left', color: '#9ca3af', fontSize: '11px', fontWeight: '700', marginBottom: '8px', letterSpacing: '1px' },
-  loginInput: { width: '100%', padding: '12px 16px', background: '#1f2937', border: '1px solid #374151', color: 'white', borderRadius: '8px', outline: 'none', fontSize: '16px', textAlign: 'center', letterSpacing: '5px' },
-  loginBtn: { width: '100%', padding: '14px', background: 'white', color: 'black', fontWeight: '700', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: '0.2s' },
-
-  // DASHBOARD LAYOUT
-  dashboard: { display: 'grid', gridTemplateColumns: '260px 1fr', minHeight: '100vh', fontFamily: '"Inter", sans-serif', background: '#f3f4f6' },
+  // LAYOUT
+  layout: { display: 'flex', minHeight: '100vh', fontFamily: '"Inter", sans-serif', background: '#f1f5f9' },
   
-  // SIDEBAR
-  sidebar: { background: '#111827', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px', height: '100vh', position: 'sticky', top: 0 },
-  brandContainer: { display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 10px 30px 10px', borderBottom: '1px solid #374151', marginBottom: '20px' },
-  brandIcon: { width: '32px', height: '32px', background: 'white', color: 'black', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' },
-  brandName: { fontWeight: '700', fontSize: '14px', letterSpacing: '1px' },
+  // FIXED SIDEBAR (Does not move)
+  sidebar: { width: '280px', minWidth: '280px', height: '100vh', background: '#0f172a', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '24px', position: 'fixed', left: 0, top: 0, zIndex: 50 },
   
-  navMenu: { display: 'flex', flexDirection: 'column', gap: '5px' },
-  navLabel: { fontSize: '11px', fontWeight: '700', color: '#6b7280', marginTop: '20px', marginBottom: '10px', paddingLeft: '10px' },
-  navItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderRadius: '8px', background: 'transparent', color: '#d1d5db', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: '14px', fontWeight: '500', transition: '0.2s' },
-  navItemActive: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderRadius: '8px', background: '#374151', color: 'white', border: 'none', cursor: 'default', textAlign: 'left', fontSize: '14px', fontWeight: '600' },
-  navBadge: { background: '#ef4444', color: 'white', fontSize: '10px', padding: '2px 8px', borderRadius: '10px' },
-  logoutItem: { background: 'transparent', border: '1px solid #374151', color: '#9ca3af', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', textAlign: 'center', fontSize: '13px' },
+  // MAIN CONTENT (Scrolls independently)
+  mainContent: { marginLeft: '280px', flex: 1, padding: '40px', overflowY: 'auto' },
 
-  // MAIN CONTENT
-  mainContent: { padding: '40px', overflowY: 'auto', height: '100vh' },
-  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
-  pageTitle: { margin: 0, fontSize: '24px', fontWeight: '800', color: '#111827' },
-  userProfile: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#4b5563', background: 'white', padding: '8px 16px', borderRadius: '20px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' },
-  statusDot: { width: '8px', height: '8px', background: '#10b981', borderRadius: '50%' },
+  // BRANDING
+  brandContainer: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px', paddingLeft: '8px' },
+  brandIcon: { width: '36px', height: '36px', background: 'white', color: 'black', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', fontSize: '20px' },
+  brandName: { fontWeight: '800', fontSize: '16px', letterSpacing: '1px', color: '#f8fafc' },
+  
+  navMenu: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  navLabel: { fontSize: '11px', fontWeight: '700', color: '#64748b', marginTop: '24px', marginBottom: '8px', paddingLeft: '12px', letterSpacing: '0.5px' },
+  navItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderRadius: '8px', background: 'transparent', color: '#cbd5e1', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: '14px', fontWeight: '500', transition: '0.2s' },
+  navItemActive: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderRadius: '8px', background: '#1e293b', color: 'white', border: '1px solid #334155', cursor: 'default', textAlign: 'left', fontSize: '14px', fontWeight: '600', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' },
+  navBadge: { background: '#ef4444', color: 'white', fontSize: '11px', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' },
+  logoutItem: { background: 'transparent', border: '1px solid #334155', color: '#94a3b8', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', textAlign: 'center', fontSize: '13px', fontWeight: '600', transition: '0.2s' },
 
-  // STATS
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' },
-  statCard: { background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  statTitle: { fontSize: '13px', color: '#6b7280', fontWeight: '600', marginBottom: '5px' },
-  statValue: { fontSize: '28px', fontWeight: '800', color: '#111827' },
-  statIcon: { width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' },
+  // HEADER & PAGE
+  pageHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
+  pageTitle: { margin: 0, fontSize: '28px', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.5px' },
+  dangerHeaderBtn: { background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', padding: '10px 20px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' },
 
-  // PANELS & TABLES
-  panel: { background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', overflow: 'hidden', marginBottom: '20px' },
-  panelHeader: { padding: '20px 30px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  panelTitle: { margin: 0, fontSize: '16px', fontWeight: '700' },
+  // PANELS
+  panel: { background: 'white', borderRadius: '12px', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)', border: '1px solid #e2e8f0', overflow: 'hidden' },
+  panelHeader: { padding: '24px 32px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' },
+  panelBody: { padding: '32px' },
+  panelTitle: { margin: 0, fontSize: '16px', fontWeight: '700', color: '#1e293b' },
+
+  // TABLES
   tableContainer: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' },
-  thead: { background: '#f9fafb', color: '#6b7280' },
-  th: { padding: '16px 30px', fontWeight: '600', fontSize: '11px', letterSpacing: '0.5px' },
-  tr: { borderBottom: '1px solid #f3f4f6', transition: 'background 0.1s' },
-  td: { padding: '16px 30px', color: '#374151' },
-  emptyState: { padding: '40px', textAlign: 'center', color: '#9ca3af' },
+  thead: { background: '#f8fafc', borderBottom: '1px solid #e2e8f0' },
+  th: { padding: '16px 32px', fontWeight: '600', fontSize: '11px', letterSpacing: '0.5px', color: '#64748b', textTransform: 'uppercase' },
+  tr: { borderBottom: '1px solid #f1f5f9', transition: 'background 0.1s' },
+  td: { padding: '16px 32px', color: '#334155', verticalAlign: 'middle' },
+  emptyState: { padding: '60px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' },
 
-  // FORM ELEMENTS
-  splitLayout: { display: 'grid', gridTemplateColumns: '350px 1fr', gap: '25px' },
+  // ELEMENTS
+  copyBtn: { background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600', color: '#475569', transition: '0.2s' },
+  outlineBtn: { background: 'white', color: '#475569', border: '1px solid #cbd5e1', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
+  primaryBtn: { background: '#0f172a', color: 'white', border: 'none', padding: '12px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', width: '100%', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' },
+  
+  maintenanceBox: { marginTop: '20px', padding: '24px', background: '#fff1f2', borderRadius: '12px', border: '1px dashed #fda4af' },
+  maintenanceBtn: { width: '100%', padding: '10px', background: 'white', border: '1px solid #fecdd3', borderRadius: '6px', color: '#be123c', fontWeight: '600', fontSize: '12px', cursor: 'pointer' },
+  maintenanceBtnDanger: { width: '100%', padding: '10px', background: '#be123c', border: 'none', borderRadius: '6px', color: 'white', fontWeight: '700', fontSize: '12px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' },
+
+  // BADGES & STATUS
+  monoBadge: { fontFamily: 'monospace', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', color: '#334155', fontWeight: '600', border: '1px solid #e2e8f0' },
+  categoryBadge: { background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' },
+  
+  statusSelect: { padding: '6px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', border: '1px solid transparent', cursor: 'pointer', outline: 'none' },
+  statusPending: { background: '#fef9c3', color: '#b45309' },
+  statusProcessing: { background: '#e0f2fe', color: '#0369a1' },
+  statusDone: { background: '#dcfce7', color: '#15803d' },
+
+  iconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '8px', borderRadius: '4px', transition: '0.2s' },
+  iconBtnDanger: { background: '#fee2e2', border: 'none', cursor: 'pointer', fontSize: '14px', width:'32px', height:'32px', borderRadius:'6px', display:'flex', alignItems:'center', justifyContent:'center', color: '#b91c1c' },
+
+  // FORM
+  splitLayout: { display: 'grid', gridTemplateColumns: '350px 1fr', gap: '30px' },
   formGroup: { marginBottom: '20px' },
-  label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '8px' },
-  input: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none' },
-  primaryBtn: { background: '#111827', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', width: '100%' },
-  outlineBtn: { background: 'white', color: '#374151', border: '1px solid #d1d5db', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
-  dangerOutlineBtn: { background: '#fff', color: '#ef4444', border: '1px solid #fee2e2', padding: '8px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', width: '100%' },
-  
-  // BADGES & BUTTONS
-  monoBadge: { fontFamily: 'monospace', background: '#f3f4f6', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', color: '#111827' },
-  categoryBadge: { background: '#eff6ff', color: '#3b82f6', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' },
-  link: { fontSize: '12px', color: '#3b82f6', textDecoration: 'none', fontWeight: '500' },
-  
-  statusSelect: { padding: '6px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', border: '1px solid transparent', cursor: 'pointer' },
-  statusPending: { background: '#fef3c7', color: '#d97706' },
-  statusProcessing: { background: '#e0f2fe', color: '#0284c7' },
-  statusDone: { background: '#dcfce7', color: '#16a34a' },
+  label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  input: { width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', transition: 'border 0.2s', fontSize: '14px' },
 
-  iconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '5px' },
-  iconBtnDanger: { background: '#fee2e2', border: 'none', cursor: 'pointer', fontSize: '14px', width:'28px', height:'28px', borderRadius:'6px', display:'flex', alignItems:'center', justifyContent:'center' },
+  // LOGIN SCREEN
+  loginPage: { height: '100vh', width: '100vw', background: '#0f172a', display: 'flex', justifyContent: 'center', alignItems: 'center' },
+  loginContainer: { width: '400px', background: 'rgba(30, 41, 59, 0.7)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.1)', padding: '48px', borderRadius: '24px', textAlign: 'center' },
+  loginHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px' },
+  logoSquare: { width: '64px', height: '64px', background: 'white', color: 'black', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: '800', marginBottom: '24px', boxShadow: '0 0 40px rgba(255,255,255,0.1)' },
+  loginTitle: { color: 'white', fontSize: '28px', fontWeight: '800', margin: 0, letterSpacing: '-1px' },
+  loginInput: { width: '100%', padding: '16px', background: '#1e293b', border: '1px solid #334155', color: 'white', borderRadius: '12px', outline: 'none', fontSize: '18px', textAlign: 'center', letterSpacing: '4px', marginBottom: '20px' },
+  loginBtn: { width: '100%', padding: '16px', background: 'white', color: 'black', fontWeight: '800', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '16px' },
 
-  // PRINT & MAINTENANCE
-  maintenanceBox: { marginTop: '30px', padding: '20px', background: '#fef2f2', borderRadius: '12px', border: '1px dashed #fca5a5' },
+  // PRINT / PREVIEW
   previewGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '20px', padding: '20px' },
   qrItem: { border: '1px solid #eee', padding: '15px', borderRadius: '8px', textAlign: 'center' },
   qrText: { fontSize: '10px', marginTop: '10px', fontFamily: 'monospace' },
-
+  
   // MODAL
-  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-  modalContent: { background: 'white', padding: '30px', borderRadius: '16px', maxWidth: '500px', width: '90%', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+  modalContent: { background: 'white', padding: '40px', borderRadius: '24px', maxWidth: '500px', width: '90%', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }
 }
