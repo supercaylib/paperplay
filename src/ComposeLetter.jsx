@@ -69,32 +69,39 @@ export default function ComposeLetter() {
 
     let uploadedPhotoUrl = null
 
-    // 1. Upload Photo (FIXED: Sanitized Filename)
+    // 1. Upload Photo (With Better Error Handling)
     if (photoFile) {
       try {
-        // Create a clean filename (timestamp.extension)
+        // Sanitize filename: use timestamp + simple extension
         const fileExt = photoFile.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
         
-        // Upload
+        // Attempt Upload
         const { error: uploadError } = await supabase.storage
           .from('images')
           .upload(fileName, photoFile)
         
         if (uploadError) {
           console.error('Upload Error:', uploadError)
-          alert('Failed to upload image. Please try a smaller file.')
-        } else {
-          // Get Public URL
-          const { data } = supabase.storage.from('images').getPublicUrl(fileName)
-          uploadedPhotoUrl = data.publicUrl
+          // STOP PROCESS ON ERROR
+          alert(`Image Upload Failed: ${uploadError.message}\n(Check your Supabase Storage Policies)`)
+          setLoading(false)
+          return 
         }
+
+        // Get Public URL
+        const { data } = supabase.storage.from('images').getPublicUrl(fileName)
+        uploadedPhotoUrl = data.publicUrl
+
       } catch (err) {
         console.error('Unexpected error:', err)
+        alert('Unexpected error during upload.')
+        setLoading(false)
+        return
       }
     }
 
-    // 2. Insert Data
+    // 2. Insert Data (Only happens if photo succeeded or no photo)
     const { data, error } = await supabase
       .from('digital_letters')
       .insert({
@@ -102,14 +109,14 @@ export default function ComposeLetter() {
         message_body: message,
         theme: theme === 'holiday' ? subTheme : theme,
         unlock_at: unlockDate ? new Date(unlockDate).toISOString() : null,
-        photo_url: uploadedPhotoUrl // Save the URL
+        photo_url: uploadedPhotoUrl
       })
       .select()
 
     setLoading(false)
 
     if (error) {
-      alert('Error saving letter: ' + error.message)
+      alert('Database Error: ' + error.message)
     } else {
       setTicket(data[0].ticket_code)
       setStep(5)
@@ -236,10 +243,22 @@ export default function ComposeLetter() {
               style={{ flex: 1, background: '#f9f9f9', borderRadius: '12px', padding: '20px', resize: 'none', border: '1px solid #eee', marginBottom: '20px', fontFamily: currentVisuals.font, fontSize: '16px', lineHeight: '1.5' }}
             />
             
-            {/* PHOTO UPLOAD */}
-            <div style={{ marginBottom: '15px', padding: '10px', border: '1px dashed #ccc', borderRadius: '10px', textAlign: 'center' }}>
-               <label className="label-text" style={{cursor:'pointer', display:'block'}}>
-                  {photoFile ? `📸 ${photoFile.name}` : '📎 Attach a Memory (Photo)'}
+            {/* FIXED PHOTO UPLOAD UI */}
+            <div style={{ marginBottom: '15px', padding: '15px', border: '1px dashed #ccc', borderRadius: '10px', textAlign: 'center', background: '#fcfcfc' }}>
+               <label style={{cursor:'pointer', display:'block', width: '100%'}}>
+                  {photoFile ? (
+                    <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'10px', color:'#27ae60', fontWeight:'600', fontSize:'13px'}}>
+                       <span>📸 Image Attached</span>
+                       {/* FIXED: Truncate long filenames */}
+                       <span style={{maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#666', fontWeight: 'normal'}}>
+                         ({photoFile.name})
+                       </span>
+                    </div>
+                  ) : (
+                    <div style={{fontSize:'13px', color:'#666'}}>
+                      <span style={{fontSize:'18px'}}>📎</span> Attach a Photo
+                    </div>
+                  )}
                   <input type="file" accept="image/*" onChange={e => setPhotoFile(e.target.files[0])} style={{display:'none'}} />
                </label>
             </div>
@@ -278,7 +297,6 @@ export default function ComposeLetter() {
              {message || (receiver ? `Dear ${receiver},` : "Start typing...")}
           </div>
           
-          {/* PREVIEW IMAGE */}
           {photoFile && (
             <div style={{ marginTop: '20px', padding: '5px', background: 'white', transform: 'rotate(-2deg)', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', width: '100px', margin: '20px auto' }}>
                <img src={URL.createObjectURL(photoFile)} alt="Preview" style={{ width: '100%', display: 'block' }} />
