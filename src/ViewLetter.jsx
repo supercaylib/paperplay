@@ -15,8 +15,9 @@ export default function ViewLetter() {
   const [isLocked, setIsLocked] = useState(false)
   const [timeLeft, setTimeLeft] = useState('')
   const [isOpen, setIsOpen] = useState(false)
-  const [isUnwrapping, setIsUnwrapping] = useState(false) // For ribbon animation
+  const [isUnwrapping, setIsUnwrapping] = useState(false)
 
+  // THEMES
   const themes = {
     classic: { bg: '#fdf6e3', color: '#5b4636', font: '"Times New Roman", serif' },
     love: { bg: '#fff0f3', color: '#c0392b', font: 'Brush Script MT, cursive' },
@@ -30,9 +31,7 @@ export default function ViewLetter() {
     simple: { bg: '#ffffff', color: '#2d3436', font: 'Arial, sans-serif' }
   }
 
-  useEffect(() => {
-    fetchLetter()
-  }, [])
+  useEffect(() => { fetchLetter() }, [])
 
   async function fetchLetter() {
     const { data, error } = await supabase
@@ -50,6 +49,7 @@ export default function ViewLetter() {
     setLetter(data)
     setLoading(false)
 
+    // Lock Logic
     if (data.unlock_at) {
       const unlockDate = new Date(data.unlock_at)
       const now = new Date()
@@ -71,52 +71,34 @@ export default function ViewLetter() {
     setTimeLeft(`${days}d ${hours}h ${minutes}m`)
   }
 
-  // ANIMATION LOGIC
-  const handleOpen = () => {
-    setIsUnwrapping(true)
-    setTimeout(() => {
-      setIsOpen(true)
-    }, 600) // Wait for ribbon animation
+  // WEATHER COMPONENT
+  const WeatherEffect = ({ theme }) => {
+    if (!['christmas', 'newyear', 'cny', 'love', 'valentines'].includes(theme)) return null
+    const isSnow = ['christmas', 'newyear', 'cny'].includes(theme)
+    const items = Array.from({ length: 30 })
+    
+    return (
+      <div className="weather-layer">
+        {items.map((_, i) => (
+          <div key={i} className={isSnow ? "snow-particle" : "heart-particle"} 
+               style={{ 
+                 left: `${Math.random() * 100}%`, 
+                 animationDuration: `${3 + Math.random() * 5}s`, 
+                 animationDelay: `${Math.random() * 5}s` 
+               }}>
+            {isSnow ? '❄' : '❤️'}
+          </div>
+        ))}
+      </div>
+    )
   }
 
-  // WEATHER EFFECT COMPONENT
-  const WeatherEffect = ({ type }) => {
-    const particles = Array.from({ length: 20 }) // 20 particles
-    if (type === 'snow') {
-      return (
-        <div className="weather-layer">
-          {particles.map((_, i) => (
-            <div key={i} className="snow-particle" style={{ left: `${Math.random() * 100}%`, animationDuration: `${3 + Math.random() * 5}s`, animationDelay: `${Math.random() * 5}s` }}>❄</div>
-          ))}
-        </div>
-      )
-    }
-    if (type === 'hearts') {
-      return (
-        <div className="weather-layer">
-          {particles.map((_, i) => (
-            <div key={i} className="heart-particle" style={{ left: `${Math.random() * 100}%`, animationDuration: `${4 + Math.random() * 4}s`, animationDelay: `${Math.random() * 5}s` }}>❤️</div>
-          ))}
-        </div>
-      )
-    }
-    return null
-  }
-
-  // Determine active weather
-  const getWeather = () => {
-    if (!letter) return null
-    if (['christmas', 'newyear', 'cny'].includes(letter.theme)) return 'snow'
-    if (['love', 'valentines'].includes(letter.theme)) return 'hearts'
-    return null
-  }
-
-  if (loading) return <div className="view-page-bg"><div style={{color:'white'}}>Fetching...</div></div>
+  if (loading) return <div className="view-page-bg"><span style={{color:'white'}}>Fetching...</span></div>
   if (error) return <div className="view-page-bg"><div className="lock-screen"><h2>🚫 Not Found</h2><button onClick={() => navigate('/')} className="action-btn btn-outline">Go Home</button></div></div>
 
   const currentTheme = themes[letter.theme] || themes.classic
 
-  // LOCKED
+  // 1. LOCKED SCREEN
   if (isLocked) return (
     <div className="view-page-bg">
       <div className="lock-screen">
@@ -124,67 +106,60 @@ export default function ViewLetter() {
         <h2>Locked</h2>
         <div className="countdown-box">{timeLeft}</div>
         <p style={{fontSize:'12px', opacity:0.7}}>Opens on: {new Date(letter.unlock_at).toLocaleDateString()}</p>
-        <button onClick={() => navigate('/')} className="action-btn btn-outline" style={{marginTop:'20px'}}>Wait</button>
+        <button onClick={() => navigate('/')} className="action-btn btn-outline" style={{marginTop:'20px'}}>Okay, I'll Wait</button>
       </div>
     </div>
   )
 
-  // ENVELOPE (RIBBON) VIEW
+  // 2. ENVELOPE (RIBBON) SCREEN
   if (!isOpen) return (
     <div className="view-page-bg">
-      {/* Background Animation */}
-      <WeatherEffect type={getWeather()} />
+      <WeatherEffect theme={letter.theme} />
       
-      <div className={`envelope-wrapper`}>
-        {/* NEW RIBBON UI */}
-        <div 
-          className={`ribbon-wrapper ${isUnwrapping ? 'unwrap-anim' : ''}`} 
-          onClick={handleOpen}
-        >
+      <div className="envelope-wrapper">
+        <div className={`ribbon-box ${isUnwrapping ? 'unwrap-anim' : ''}`} 
+             onClick={() => { setIsUnwrapping(true); setTimeout(() => setIsOpen(true), 800); }}>
           <div className="ribbon-v"></div>
           <div className="ribbon-h"></div>
-          <div className="ribbon-bow">OPEN</div>
-          
-          <div style={{position:'absolute', bottom:'20px', width:'100%', textAlign:'center', color:'#888', fontSize:'12px', fontWeight:'bold'}}>
-            A Letter for You
-          </div>
+          <div className="ribbon-btn">OPEN</div>
+        </div>
+        <div style={{color:'white', marginTop:'20px', textAlign:'center', fontSize:'14px', opacity:0.8}}>
+          A letter for you
         </div>
       </div>
     </div>
   )
 
-  // OPENED LETTER
+  // 3. OPENED LETTER SCREEN
   return (
     <div className="view-page-bg">
-      <WeatherEffect type={getWeather()} />
+      <WeatherEffect theme={letter.theme} />
 
       <div className="letter-container" style={{ background: currentTheme.bg, color: currentTheme.color }}>
         
         {/* HEADER */}
-        <div style={{ borderBottom: `1px solid ${currentTheme.color}40`, paddingBottom: '20px', marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '11px', fontWeight: 'bold', opacity: 0.5, letterSpacing: '1px' }}>PAPERPLAY ARCHIVE</span>
-          <span style={{ fontFamily: currentTheme.font, fontSize: '14px', opacity: 0.7 }}>
-             {new Date(letter.created_at).toLocaleDateString()}
-          </span>
+        <div style={{ borderBottom: `1px solid ${currentTheme.color}40`, paddingBottom: '20px', marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: 0.6, fontSize: '12px' }}>
+          <span>PAPERPLAY ARCHIVE</span>
+          <span>{new Date(letter.created_at).toLocaleDateString()}</span>
         </div>
 
-        {/* BODY */}
+        {/* CONTENT */}
         <div className="handwritten-text" style={{ fontFamily: currentTheme.font }}>
            {letter.message_body}
         </div>
 
-        {/* POLAROID PHOTO ATTACHMENT */}
+        {/* PHOTO ATTACHMENT */}
         {letter.photo_url && (
-          <div className="polaroid-container">
-             <img src={letter.photo_url} alt="Attached Memory" className="polaroid-img" />
+          <div className="polaroid-wrapper">
+             <img src={letter.photo_url} alt="Memory" className="polaroid-img" />
              <div style={{textAlign:'center', marginTop:'10px', fontFamily:'cursive', color:'#555', fontSize:'12px'}}>
                A special memory
              </div>
           </div>
         )}
 
-        {/* FOOTER */}
-        <div style={{ marginTop: '50px', textAlign: 'right', fontFamily: currentTheme.font }}>
+        {/* SIGNATURE */}
+        <div style={{ marginTop: '40px', textAlign: 'right', fontFamily: currentTheme.font }}>
           <p style={{ margin: 0, opacity: 0.6, fontSize: '14px' }}>Sincerely,</p>
           <p style={{ margin: '5px 0 0', fontSize: '20px', fontWeight: 'bold' }}>{letter.sender_name}</p>
         </div>

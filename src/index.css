@@ -650,126 +650,126 @@ a { text-decoration: none; }
   max-width: 350px;
 }
 /* ==============================
-   12. SPECIAL FX (Ribbon, Polaroid, Weather)
+   12. SPECIAL FX & VIEW PAGE FIXES
    ============================== */
 
-/* --- POLAROID PHOTO --- */
-.polaroid-container {
-  background: white;
-  padding: 10px 10px 30px 10px; /* Big bottom padding for "Polaroid" look */
-  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-  transform: rotate(-2deg);
-  transition: transform 0.3s;
-  width: 90%;
-  max-width: 250px;
-  margin: 30px auto;
-  border: 1px solid #eee;
+/* 1. THEATER BACKGROUND (Stops Shaking) */
+.view-page-bg {
+  position: fixed; /* Locks screen so snow doesn't trigger scrollbars */
+  top: 0; left: 0; width: 100%; height: 100%;
+  background-color: #1a1a1a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-y: auto; /* Allows scrolling INSIDE if letter is long */
+  z-index: 1;
 }
-.polaroid-container:hover {
-  transform: rotate(0deg) scale(1.05);
+
+/* 2. ENVELOPE WRAPPER (Fixes Tiny Ribbon) */
+.envelope-wrapper {
+  position: relative;
+  width: 320px;  /* FIXED WIDTH - Prevents squashing */
+  height: 220px; /* FIXED HEIGHT */
+  margin: auto;
   z-index: 10;
+  animation: float 6s ease-in-out infinite;
 }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* 3. RIBBON / GIFT BOX */
+.ribbon-box {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+  position: relative;
+  cursor: pointer;
+  overflow: hidden; 
+}
+
+.ribbon-v {
+  position: absolute; left: 50%; top: 0; bottom: 0;
+  width: 40px; background: #c0392b;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+.ribbon-h {
+  position: absolute; top: 50%; left: 0; right: 0;
+  height: 40px; background: #c0392b;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.ribbon-btn {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 70px; height: 70px;
+  background: #e74c3c;
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: bold;
+  font-size: 12px;
+  z-index: 5;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  border: 2px solid white;
+}
+
+/* UNWRAP ANIMATION */
+.unwrap-anim .ribbon-v { animation: slideUp 0.8s forwards; }
+.unwrap-anim .ribbon-h { animation: slideSide 0.8s forwards; }
+.unwrap-anim .ribbon-btn { animation: popOff 0.5s forwards; }
+
+@keyframes slideUp { to { height: 0; opacity: 0; } }
+@keyframes slideSide { to { width: 0; opacity: 0; } }
+@keyframes popOff { to { transform: translate(-50%, -50%) scale(1.5); opacity: 0; } }
+
+/* 4. POLAROID PHOTO (Fixes Missing Image) */
+.polaroid-wrapper {
+  background: white;
+  padding: 10px 10px 40px 10px; /* Bottom padding for writing space */
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  transform: rotate(-3deg);
+  width: 220px;
+  margin: 40px auto 20px auto; 
+  border: 1px solid #ddd;
+  position: relative;
+  z-index: 10;
+  transition: transform 0.3s;
+}
+.polaroid-wrapper:hover { transform: rotate(0deg) scale(1.05); }
+
 .polaroid-img {
   width: 100%;
   height: auto;
   display: block;
-  background: #eee; /* Placeholder color */
+  background: #eee;
 }
 
-/* --- RIBBON UNWRAPPING --- */
-.ribbon-wrapper {
-  position: relative;
-  width: 100%;
-  max-width: 400px;
-  height: 300px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  cursor: pointer;
-  animation: float 6s ease-in-out infinite;
-}
-
-/* The Vertical Strip */
-.ribbon-v {
-  position: absolute;
-  top: 0; bottom: 0; left: 50%;
-  width: 40px;
-  background: #c0392b;
-  transform: translateX(-50%);
-  z-index: 1;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
-
-/* The Horizontal Strip */
-.ribbon-h {
-  position: absolute;
-  left: 0; right: 0; top: 50%;
-  height: 40px;
-  background: #c0392b;
-  transform: translateY(-50%);
-  z-index: 1;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-}
-
-/* The Bow */
-.ribbon-bow {
-  width: 80px;
-  height: 80px;
-  background: #e74c3c;
-  position: relative;
-  z-index: 2;
-  border-radius: 50%;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-  text-transform: uppercase;
-}
-
-/* Animation Class: When clicked */
-.unwrap-anim .ribbon-v { animation: slideUp 0.6s forwards; }
-.unwrap-anim .ribbon-h { animation: slideSide 0.6s forwards; }
-.unwrap-anim .ribbon-bow { animation: popOff 0.4s forwards; }
-
-@keyframes slideUp { to { height: 0; opacity: 0; } }
-@keyframes slideSide { to { width: 0; opacity: 0; } }
-@keyframes popOff { to { transform: scale(2); opacity: 0; } }
-
-/* --- WEATHER EFFECTS --- */
+/* 5. WEATHER EFFECTS (No Scrollbars) */
 .weather-layer {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  pointer-events: none; /* Let clicks pass through */
-  z-index: 999;
+  position: fixed; 
+  top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  overflow: hidden; /* CRITICAL: Stops the shaking */
 }
 
-/* Snow */
 .snow-particle {
-  position: absolute;
-  top: -10px;
-  color: white;
-  font-size: 20px;
+  position: absolute; top: -20px; color: white; font-size: 20px;
   animation: fall linear infinite;
 }
-@keyframes fall {
-  to { transform: translateY(100vh); }
+.heart-particle {
+  position: absolute; bottom: -20px; color: #e74c3c; font-size: 20px;
+  animation: floatUp linear infinite;
 }
 
-/* Hearts */
-.heart-particle {
-  position: absolute;
-  bottom: -10px;
-  color: #e74c3c;
-  font-size: 20px;
-  animation: floatUp linear infinite;
-  opacity: 0.6;
-}
-@keyframes floatUp {
-  to { transform: translateY(-100vh); opacity: 0; }
-}
+@keyframes fall { to { transform: translateY(110vh); } }
+@keyframes floatUp { to { transform: translateY(-110vh); opacity: 0; } }
