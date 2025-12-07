@@ -19,6 +19,9 @@ export default function ComposeLetter() {
   const [unlockDate, setUnlockDate] = useState('')
   const [message, setMessage] = useState('')
   const [ticket, setTicket] = useState(null)
+  
+  // NEW: Photo State
+  const [photoFile, setPhotoFile] = useState(null)
 
   // THEME CONFIG
   const themes = [
@@ -56,8 +59,7 @@ export default function ComposeLetter() {
     }
     const simpleDearRegex = /^Dear .*?,/
     if (message.match(simpleDearRegex)) {
-      const newMessage = message.replace(simpleDearRegex, `Dear ${receiver},`)
-      setMessage(newMessage)
+      setMessage(message.replace(simpleDearRegex, `Dear ${receiver},`))
     }
   }, [receiver])
 
@@ -65,13 +67,28 @@ export default function ComposeLetter() {
     if (!message || !sender) return alert('Please write a message and sign your name.')
     setLoading(true)
 
+    let uploadedPhotoUrl = null
+
+    // 1. Upload Photo if exists
+    if (photoFile) {
+      const fileName = `${Date.now()}-${photoFile.name}`
+      const { error: uploadError } = await supabase.storage.from('images').upload(fileName, photoFile)
+      
+      if (!uploadError) {
+        const { data } = supabase.storage.from('images').getPublicUrl(fileName)
+        uploadedPhotoUrl = data.publicUrl
+      }
+    }
+
+    // 2. Insert Data
     const { data, error } = await supabase
       .from('digital_letters')
       .insert({
         sender_name: sender,
         message_body: message,
         theme: theme === 'holiday' ? subTheme : theme,
-        unlock_at: unlockDate ? new Date(unlockDate).toISOString() : null
+        unlock_at: unlockDate ? new Date(unlockDate).toISOString() : null,
+        photo_url: uploadedPhotoUrl // NEW COLUMN
       })
       .select()
 
@@ -85,65 +102,32 @@ export default function ComposeLetter() {
     }
   }
 
-  // --- FIXED RECEIPT DOWNLOADER ---
+  // RECEIPT DOWNLOADER
   const downloadReceipt = () => {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
-    canvas.width = 400
-    canvas.height = 600
+    canvas.width = 400; canvas.height = 600
     
-    // 1. White Background
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    
-    // 2. Text Header
-    ctx.fillStyle = '#1a1a1a'
-    ctx.font = 'bold 24px Arial'
-    ctx.textAlign = 'center'
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center'
     ctx.fillText('PAPERPLAY RECEIPT', 200, 60)
-    
-    ctx.font = '14px Arial'
-    ctx.fillStyle = '#666'
-    ctx.fillText('TICKET CODE', 200, 100)
-    
-    ctx.font = 'bold 40px Monospace'
-    ctx.fillStyle = '#1a1a1a'
-    ctx.fillText(ticket, 200, 150)
+    ctx.font = '14px Arial'; ctx.fillStyle = '#666'; ctx.fillText('TICKET CODE', 200, 100)
+    ctx.font = 'bold 40px Monospace'; ctx.fillStyle = '#1a1a1a'; ctx.fillText(ticket, 200, 150)
+    ctx.font = '12px Arial'; ctx.fillText('(Scan QR in App)', 200, 480)
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'italic 16px Georgia'; ctx.fillText('Thank you from Starman ✨', 200, 530)
 
-    // 3. Footer
-    ctx.font = '12px Arial'
-    ctx.fillText('(Scan QR in App)', 200, 480)
-
-    ctx.fillStyle = '#1a1a1a'
-    ctx.font = 'italic 16px Georgia'
-    ctx.fillText('Thank you from Starman ✨', 200, 530)
-
-    // 4. DRAW THE QR CODE (The Magic Part)
-    // We grab the SVG element from the screen
     const svgElement = document.getElementById('qr-code-svg')
-    
     if (svgElement) {
-      // Convert SVG XML to a format Canvas understands
       const xml = new XMLSerializer().serializeToString(svgElement)
-      const svg64 = btoa(xml) // Base64 encode
-      const b64Start = 'data:image/svg+xml;base64,'
-      const image64 = b64Start + svg64
-
       const img = new Image()
-      img.src = image64
-      
+      img.src = 'data:image/svg+xml;base64,' + btoa(xml)
       img.onload = () => {
-        // Once image is loaded, draw it
-        ctx.drawImage(img, 100, 200, 200, 200) // x, y, width, height
-        
-        // NOW we trigger download
+        ctx.drawImage(img, 100, 200, 200, 200)
         const link = document.createElement('a')
         link.download = `PaperPlay-Receipt-${ticket}.png`
         link.href = canvas.toDataURL('image/png')
         link.click()
       }
-    } else {
-      alert('Error generating QR. Please try again.')
     }
   }
 
@@ -164,7 +148,6 @@ export default function ComposeLetter() {
   return (
     <div className="app-container wide-view">
       
-      {/* LEFT CONTROLS */}
       <div className="composer-controls">
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
           <button onClick={handleBack} className="btn-outline" style={{ width: 'auto', padding: '8px 15px' }}>← Back</button>
@@ -233,10 +216,20 @@ export default function ComposeLetter() {
           <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <h1>Write Letter</h1>
             <p className="subtitle">Pour your heart out.</p>
+            
             <textarea 
               className="main-input" placeholder="Start typing your letter here..." value={message} onChange={e => setMessage(e.target.value)}
               style={{ flex: 1, background: '#f9f9f9', borderRadius: '12px', padding: '20px', resize: 'none', border: '1px solid #eee', marginBottom: '20px', fontFamily: currentVisuals.font, fontSize: '16px', lineHeight: '1.5' }}
             />
+            
+            {/* NEW: PHOTO UPLOAD */}
+            <div style={{ marginBottom: '15px', padding: '10px', border: '1px dashed #ccc', borderRadius: '10px', textAlign: 'center' }}>
+               <label className="label-text" style={{cursor:'pointer', display:'block'}}>
+                  {photoFile ? `📸 ${photoFile.name}` : '📎 Attach a Memory (Photo)'}
+                  <input type="file" accept="image/*" onChange={e => setPhotoFile(e.target.files[0])} style={{display:'none'}} />
+               </label>
+            </div>
+
             <button onClick={handlePublish} disabled={loading} className="action-btn btn-solid">
               {loading ? 'Publishing...' : 'Create Letter ✨'}
             </button>
@@ -248,49 +241,42 @@ export default function ComposeLetter() {
              <div style={{ fontSize: '40px', marginBottom: '20px' }}>🎉</div>
              <h1>Letter Created</h1>
              <p className="subtitle">Your digital memory is ready.</p>
-
              <div className="ticket-dashed">
                 <div className="label-text">TICKET CODE</div>
                 <h1 style={{ fontSize: '32px', letterSpacing: '2px', margin: '10px 0' }}>{ticket}</h1>
-                
-                {/* IMPORTANT: Added ID to this div's SVG so we can find it */}
                 <div style={{margin: '20px auto', background: 'white', padding: '10px', display:'inline-block'}}>
-                   <QRCode 
-                    id="qr-code-svg" 
-                    value={`https://paperplay-nu.vercel.app/view/${ticket}`} 
-                    size={120} 
-                   />
+                   <QRCode id="qr-code-svg" value={`https://paperplay-nu.vercel.app/view/${ticket}`} size={120} />
                 </div>
              </div>
-
-             <button onClick={downloadReceipt} className="action-btn" style={{ background: '#27ae60', color: 'white', marginBottom: '10px' }}>
-                📥 Download Receipt
-             </button>
-
+             <button onClick={downloadReceipt} className="action-btn" style={{ background: '#27ae60', color: 'white', marginBottom: '10px' }}>📥 Download Receipt</button>
              <button onClick={() => navigate('/')} className="action-btn btn-outline">Back to Home</button>
           </div>
         )}
       </div>
 
-      {/* RIGHT PREVIEW */}
       <div className="composer-preview">
         <p className="preview-label">LIVE PREVIEW</p>
         <div className="paper-preview" style={{ background: currentVisuals.bg, color: currentVisuals.color }}>
           <div style={{ borderBottom: `1px solid ${currentVisuals.color}40`, paddingBottom: '15px', marginBottom: '20px' }}>
-             <span style={{ fontFamily: currentVisuals.font, fontSize: '14px', opacity: 0.7 }}>
-               {unlockDate ? `Opens on: ${unlockDate}` : 'Open immediately'}
-             </span>
+             <span style={{ fontFamily: currentVisuals.font, fontSize: '14px', opacity: 0.7 }}>{unlockDate ? `Opens on: ${unlockDate}` : 'Open immediately'}</span>
           </div>
           <div className="handwritten-text" style={{ fontFamily: currentVisuals.font }}>
              {message || (receiver ? `Dear ${receiver},` : "Start typing...")}
           </div>
+          
+          {/* PHOTO PREVIEW */}
+          {photoFile && (
+            <div style={{ marginTop: '20px', padding: '5px', background: 'white', transform: 'rotate(-2deg)', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', width: '100px', margin: '20px auto' }}>
+               <img src={URL.createObjectURL(photoFile)} alt="Preview" style={{ width: '100%', display: 'block' }} />
+            </div>
+          )}
+
           <div style={{ marginTop: 'auto', paddingTop: '30px', textAlign: 'right', fontFamily: currentVisuals.font }}>
             <p style={{ margin: 0, opacity: 0.6, fontSize: '14px' }}>Sincerely,</p>
             <p style={{ margin: '5px 0 0', fontSize: '18px', fontWeight: 'bold' }}>{sender || "..."}</p>
           </div>
         </div>
       </div>
-
     </div>
   )
 }
