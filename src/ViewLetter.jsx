@@ -16,7 +16,7 @@ export default function ViewLetter() {
   const [timeLeft, setTimeLeft] = useState('')
   const [isOpen, setIsOpen] = useState(false)
 
-  // THEME DEFINITIONS (Must match ComposeLetter)
+  // THEME DEFINITIONS
   const themes = {
     classic: { bg: '#fdf6e3', color: '#5b4636', font: '"Times New Roman", serif' },
     love: { bg: '#fff0f3', color: '#c0392b', font: 'Brush Script MT, cursive' },
@@ -29,7 +29,6 @@ export default function ViewLetter() {
   }, [])
 
   async function fetchLetter() {
-    // 1. Get Letter Data
     const { data, error } = await supabase
       .from('digital_letters')
       .select('*')
@@ -45,7 +44,6 @@ export default function ViewLetter() {
     setLetter(data)
     setLoading(false)
 
-    // 2. Check Lock Status
     if (data.unlock_at) {
       const unlockDate = new Date(data.unlock_at)
       const now = new Date()
@@ -53,7 +51,6 @@ export default function ViewLetter() {
       if (now < unlockDate) {
         setIsLocked(true)
         calculateTimeLeft(unlockDate)
-        // Update timer every second
         setInterval(() => calculateTimeLeft(unlockDate), 1000)
       }
     }
@@ -73,6 +70,19 @@ export default function ViewLetter() {
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
     
     setTimeLeft(`${days}d ${hours}h ${minutes}m`)
+  }
+
+  // --- NEW: THEME HELPERS ---
+  const getThemeClass = (themeName) => {
+    if (themeName === 'christmas') return 'theme-christmas'
+    return ''
+  }
+
+  // If Christmas, we make background transparent so the Image shows. 
+  // Otherwise, we use the standard colors.
+  const getContainerStyle = (themeName, themeConfig) => {
+    if (themeName === 'christmas') return { background: 'transparent' } 
+    return { background: themeConfig.bg, color: themeConfig.color }
   }
 
   // LOADING SCREEN
@@ -102,11 +112,7 @@ export default function ViewLetter() {
         <div style={{fontSize:'40px', marginBottom:'10px'}}>🔒</div>
         <h2>Do Not Open Until...</h2>
         <p>This letter is time-locked by the sender.</p>
-        
-        <div className="countdown-box">
-          {timeLeft}
-        </div>
-
+        <div className="countdown-box">{timeLeft}</div>
         <p style={{fontSize:'12px', opacity:0.7}}>Unlocks on: {new Date(letter.unlock_at).toLocaleDateString()}</p>
         <button onClick={() => navigate('/')} className="action-btn btn-outline" style={{marginTop:'20px'}}>Okay, I'll Wait</button>
       </div>
@@ -117,14 +123,12 @@ export default function ViewLetter() {
   if (!isOpen) return (
     <div className="view-page-bg">
       <div className="envelope-wrapper">
-        
         <div className="envelope-closed" onClick={() => setIsOpen(true)}>
           <div className="wax-seal">P</div>
           <h3>A Letter for You</h3>
           <p style={{fontSize:'14px', color:'#666', margin:'10px 0'}}>From: <strong>{letter.sender_name}</strong></p>
           <div style={{fontSize:'12px', color:'#999', marginTop:'20px'}}>Tap to Break Seal</div>
         </div>
-
       </div>
     </div>
   )
@@ -132,10 +136,20 @@ export default function ViewLetter() {
   // 3. THE LETTER (Reading Mode)
   return (
     <div className="view-page-bg">
-      <div className="letter-container" style={{ background: currentTheme.bg, color: currentTheme.color }}>
+      <div 
+        className={`letter-container ${getThemeClass(letter.theme)}`} 
+        style={getContainerStyle(letter.theme, currentTheme)}
+      >
         
         {/* HEADER */}
-        <div style={{ borderBottom: `1px solid ${currentTheme.color}40`, paddingBottom: '20px', marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ 
+          borderBottom: letter.theme === 'christmas' ? 'none' : `1px solid ${currentTheme.color}40`, // Remove line for scroll 
+          paddingBottom: '20px', 
+          marginBottom: '30px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center' 
+        }}>
           <span style={{ fontSize: '11px', fontWeight: 'bold', opacity: 0.5, letterSpacing: '1px' }}>PAPERPLAY ARCHIVE</span>
           <span style={{ fontFamily: currentTheme.font, fontSize: '14px', opacity: 0.7 }}>
              {new Date(letter.created_at).toLocaleDateString()}
@@ -143,21 +157,21 @@ export default function ViewLetter() {
         </div>
 
         {/* BODY */}
-        <div className="handwritten-text" style={{ fontFamily: currentTheme.font }}>
+        <div className="handwritten-text" style={{ fontFamily: letter.theme === 'christmas' ? 'inherit' : currentTheme.font }}>
            {letter.message_body}
         </div>
 
         {/* FOOTER */}
-        <div style={{ marginTop: '50px', textAlign: 'right', fontFamily: currentTheme.font }}>
+        <div style={{ marginTop: '50px', textAlign: 'right', fontFamily: letter.theme === 'christmas' ? 'inherit' : currentTheme.font }}>
           <p style={{ margin: 0, opacity: 0.6, fontSize: '14px' }}>Sincerely,</p>
           <p style={{ margin: '5px 0 0', fontSize: '20px', fontWeight: 'bold' }}>{letter.sender_name}</p>
         </div>
 
         {/* ACTION BAR */}
-        <div className="action-bar">
+        <div className="action-bar" style={{ borderTop: letter.theme === 'christmas' ? 'none' : '1px dashed rgba(0,0,0,0.1)' }}>
           <button 
             onClick={() => navigate('/')} 
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.6, color: currentTheme.color }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.6, color: letter.theme === 'christmas' ? 'inherit' : currentTheme.color }}
           >
             ← Close Letter
           </button>
@@ -165,8 +179,8 @@ export default function ViewLetter() {
           <button 
             onClick={() => navigate('/create')}
             style={{ 
-              background: currentTheme.color, 
-              color: currentTheme.bg, 
+              background: letter.theme === 'christmas' ? '#2d3436' : currentTheme.color, 
+              color: letter.theme === 'christmas' ? 'white' : currentTheme.bg, 
               border: 'none', 
               padding: '8px 16px', 
               borderRadius: '20px', 
