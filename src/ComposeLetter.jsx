@@ -20,7 +20,7 @@ export default function ComposeLetter() {
   const [message, setMessage] = useState('')
   const [ticket, setTicket] = useState(null)
   
-  // NEW: Photo State
+  // PHOTO STATE
   const [photoFile, setPhotoFile] = useState(null)
 
   // THEME CONFIG
@@ -69,14 +69,28 @@ export default function ComposeLetter() {
 
     let uploadedPhotoUrl = null
 
-    // 1. Upload Photo if exists
+    // 1. Upload Photo (FIXED: Sanitized Filename)
     if (photoFile) {
-      const fileName = `${Date.now()}-${photoFile.name}`
-      const { error: uploadError } = await supabase.storage.from('images').upload(fileName, photoFile)
-      
-      if (!uploadError) {
-        const { data } = supabase.storage.from('images').getPublicUrl(fileName)
-        uploadedPhotoUrl = data.publicUrl
+      try {
+        // Create a clean filename (timestamp.extension)
+        const fileExt = photoFile.name.split('.').pop()
+        const fileName = `${Date.now()}.${fileExt}`
+        
+        // Upload
+        const { error: uploadError } = await supabase.storage
+          .from('images')
+          .upload(fileName, photoFile)
+        
+        if (uploadError) {
+          console.error('Upload Error:', uploadError)
+          alert('Failed to upload image. Please try a smaller file.')
+        } else {
+          // Get Public URL
+          const { data } = supabase.storage.from('images').getPublicUrl(fileName)
+          uploadedPhotoUrl = data.publicUrl
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err)
       }
     }
 
@@ -88,14 +102,14 @@ export default function ComposeLetter() {
         message_body: message,
         theme: theme === 'holiday' ? subTheme : theme,
         unlock_at: unlockDate ? new Date(unlockDate).toISOString() : null,
-        photo_url: uploadedPhotoUrl // NEW COLUMN
+        photo_url: uploadedPhotoUrl // Save the URL
       })
       .select()
 
     setLoading(false)
 
     if (error) {
-      alert('Error: ' + error.message)
+      alert('Error saving letter: ' + error.message)
     } else {
       setTicket(data[0].ticket_code)
       setStep(5)
@@ -222,7 +236,7 @@ export default function ComposeLetter() {
               style={{ flex: 1, background: '#f9f9f9', borderRadius: '12px', padding: '20px', resize: 'none', border: '1px solid #eee', marginBottom: '20px', fontFamily: currentVisuals.font, fontSize: '16px', lineHeight: '1.5' }}
             />
             
-            {/* NEW: PHOTO UPLOAD */}
+            {/* PHOTO UPLOAD */}
             <div style={{ marginBottom: '15px', padding: '10px', border: '1px dashed #ccc', borderRadius: '10px', textAlign: 'center' }}>
                <label className="label-text" style={{cursor:'pointer', display:'block'}}>
                   {photoFile ? `📸 ${photoFile.name}` : '📎 Attach a Memory (Photo)'}
@@ -264,7 +278,7 @@ export default function ComposeLetter() {
              {message || (receiver ? `Dear ${receiver},` : "Start typing...")}
           </div>
           
-          {/* PHOTO PREVIEW */}
+          {/* PREVIEW IMAGE */}
           {photoFile && (
             <div style={{ marginTop: '20px', padding: '5px', background: 'white', transform: 'rotate(-2deg)', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', width: '100px', margin: '20px auto' }}>
                <img src={URL.createObjectURL(photoFile)} alt="Preview" style={{ width: '100%', display: 'block' }} />
