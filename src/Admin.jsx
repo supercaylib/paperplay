@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient'
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [passwordInput, setPasswordInput] = useState('')
-  const [activeTab, setActiveTab] = useState('inbox') // Default to Inbox to see orders first
+  const [activeTab, setActiveTab] = useState('inbox') 
 
   // --- DATA STATES ---
   const [baseUrl, setBaseUrl] = useState('https://paperplay-nu.vercel.app') 
@@ -38,7 +38,7 @@ export default function Admin() {
       sessionStorage.setItem('paperplay_admin_session', 'true')
       fetchAllData()
     } else {
-      alert('Access Denied 🔒')
+      alert('Unauthorized Access.')
     }
   }
 
@@ -74,7 +74,6 @@ export default function Admin() {
     const newItems = [], dbRows = []
     for (let i = 0; i < count; i++) {
       const id = `tag-${batchId}-${i + 1}`
-      // Ensure we don't double slash if user adds trailing slash
       const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
       const link = `${cleanBase}/${id}`
       newItems.push({ id, link })
@@ -96,419 +95,431 @@ export default function Admin() {
   async function deleteUnused() { if(confirm('Delete all UNUSED codes?')) { await supabase.from('qr_codes').delete().is('video_url', null); fetchCodes(); } }
   async function deleteAllStickers() { if(confirm('DANGER: Delete ALL stickers?')) { await supabase.from('qr_codes').delete().neq('id', '0'); fetchCodes(); } }
 
-  // --- INBOX ACTIONS (THE STATUS UPDATE LOGIC) ---
+  // --- INBOX ACTIONS ---
   async function updateStatus(id, newStatus) {
-    // 1. Update Database
-    const { error } = await supabase
-      .from('letter_requests')
-      .update({ status: newStatus })
-      .eq('id', id)
-
-    if (error) {
-      alert('Error: ' + error.message)
-    } else {
-      // 2. Optimistic Update (Update UI instantly without fetch)
-      setRequests(requests.map(r => r.id === id ? { ...r, status: newStatus } : r))
-    }
+    const { error } = await supabase.from('letter_requests').update({ status: newStatus }).eq('id', id)
+    if (error) alert('Error: ' + error.message)
+    else setRequests(requests.map(r => r.id === id ? { ...r, status: newStatus } : r))
   }
 
   async function deleteRequest(id) { 
-    if(confirm('Delete order?')) { 
-      await supabase.from('letter_requests').delete().eq('id', id); 
-      fetchRequests(); 
-    } 
+    if(confirm('Delete order?')) { await supabase.from('letter_requests').delete().eq('id', id); fetchRequests(); } 
   }
   
   async function deleteAllRequests() { 
-    if(confirm('Clear Inbox?')) { 
-      await supabase.from('letter_requests').delete().neq('id', 0); 
-      fetchRequests(); 
-    } 
+    if(confirm('Clear Inbox?')) { await supabase.from('letter_requests').delete().neq('id', 0); fetchRequests(); } 
   }
 
   // --- DIGITAL LETTER ACTIONS ---
   async function deleteDigitalLetter(id) { if(confirm('Delete letter?')) { await supabase.from('digital_letters').delete().eq('id', id); fetchDigitalLetters(); } }
   async function deleteAllDigitalLetters() { if(confirm('Clear All Letters?')) { await supabase.from('digital_letters').delete().neq('id', 0); fetchDigitalLetters(); } }
 
-  // --- LOGIN VIEW ---
+  // --- LOGIN VIEW (Professional Dark Mode) ---
   if (!isAuthenticated) return (
     <div style={styles.loginPage}>
-      <div style={styles.loginCard}>
-        <div style={styles.logoCircle}>🔒</div>
-        <h2 style={styles.loginTitle}>Command Center</h2>
+      <div style={styles.loginContainer}>
+        <div style={styles.loginHeader}>
+          <div style={styles.logoSquare}>P</div>
+          <h1 style={styles.loginTitle}>Admin Portal</h1>
+        </div>
+        <p style={{color:'#6b7280', fontSize:'14px', marginBottom:'30px'}}>Please authenticate to access the system.</p>
+        
         <form onSubmit={handleLogin}>
-          <input 
-            type="password" 
-            placeholder="Enter PIN" 
-            value={passwordInput} 
-            onChange={e => setPasswordInput(e.target.value)} 
-            style={styles.input} 
-            autoFocus
-          />
-          <button type="submit" style={styles.primaryBtn}>Unlock System</button>
+          <div style={{marginBottom:'20px'}}>
+             <label style={styles.loginLabel}>SECURITY PIN</label>
+             <input 
+              type="password" 
+              value={passwordInput} 
+              onChange={e => setPasswordInput(e.target.value)} 
+              style={styles.loginInput} 
+              autoFocus
+              placeholder="••••"
+            />
+          </div>
+          <button type="submit" style={styles.loginBtn}>Access Dashboard →</button>
         </form>
+        <div style={{marginTop:'30px', fontSize:'12px', color:'#9ca3af'}}>
+          PaperPlay Systems v2.0
+        </div>
       </div>
     </div>
   )
 
-  // --- DASHBOARD VIEW ---
+  // --- DASHBOARD VIEW (Sidebar Layout) ---
   return (
     <div style={styles.dashboard}>
       
-      {/* HEADER */}
-      <div className="no-print" style={styles.header}>
-        <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
-          <div style={styles.brandIcon}>P</div>
-          <div>
-            <h2 style={styles.brandText}>PaperPlay Admin</h2>
-            <p style={{margin:0, fontSize:'11px', color:'#888'}}>Control Panel</p>
+      {/* SIDEBAR NAVIGATION */}
+      <div className="no-print" style={styles.sidebar}>
+        <div>
+          <div style={styles.brandContainer}>
+             <div style={styles.brandIcon}>P</div>
+             <span style={styles.brandName}>PAPERPLAY</span>
           </div>
+
+          <nav style={styles.navMenu}>
+             <div style={styles.navLabel}>MAIN</div>
+             <button onClick={() => setActiveTab('inbox')} style={activeTab === 'inbox' ? styles.navItemActive : styles.navItem}>
+               📦 Orders
+               {requests.filter(r => r.status === 'Pending').length > 0 && <span style={styles.navBadge}>{requests.filter(r => r.status === 'Pending').length}</span>}
+             </button>
+             <button onClick={() => setActiveTab('digital')} style={activeTab === 'digital' ? styles.navItemActive : styles.navItem}>
+               💌 Archive
+             </button>
+
+             <div style={styles.navLabel}>TOOLS</div>
+             <button onClick={() => setActiveTab('factory')} style={activeTab === 'factory' ? styles.navItemActive : styles.navItem}>
+               🏭 Factory
+             </button>
+          </nav>
         </div>
+
+        <button onClick={handleLogout} style={styles.logoutItem}>
+          Logout
+        </button>
+      </div>
+
+      {/* MAIN CONTENT AREA */}
+      <div style={styles.mainContent}>
         
-        <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
-      </div>
-
-      {/* STATS STRIP */}
-      <div className="no-print" style={styles.statsContainer}>
-        <div style={styles.statBox}>
-           <span style={styles.statNum}>{requests.filter(r => r.status === 'Pending').length}</span>
-           <span style={styles.statLabel}>PENDING</span>
-        </div>
-        <div style={styles.statBox}>
-           <span style={styles.statNum}>{requests.filter(r => r.status === 'Processing').length}</span>
-           <span style={styles.statLabel}>CRAFTING</span>
-        </div>
-        <div style={styles.statBox}>
-           <span style={styles.statNum}>{dbCodes.length}</span>
-           <span style={styles.statLabel}>QR CODES</span>
-        </div>
-      </div>
-
-      {/* TABS */}
-      <div className="no-print" style={styles.content}>
-        <div style={styles.tabs}>
-          <button onClick={() => setActiveTab('inbox')} style={activeTab === 'inbox' ? styles.tabActive : styles.tab}>
-            📦 Orders <span style={styles.badge}>{requests.length}</span>
-          </button>
-          <button onClick={() => setActiveTab('factory')} style={activeTab === 'factory' ? styles.tabActive : styles.tab}>
-            🏭 Factory
-          </button>
-          <button onClick={() => setActiveTab('digital')} style={activeTab === 'digital' ? styles.tabActive : styles.tab}>
-            💌 Archive
-          </button>
-        </div>
-      </div>
-
-      {/* === TAB 1: INBOX (ORDERS) === */}
-      {activeTab === 'inbox' && (
-        <div style={styles.content}>
-          <div style={styles.card}>
-            <div style={styles.tableHeader}>
-              <h3 style={styles.cardTitle}>Order Management</h3>
-              <div style={{display:'flex', gap:'10px'}}>
-                <button onClick={fetchRequests} style={styles.secondaryBtn}>Refresh</button>
-                <button onClick={deleteAllRequests} style={styles.cleanupBtn}>Clear All</button>
-              </div>
-            </div>
-
-            <div className="admin-grid">
-              {/* HEADER ROW (Desktop Only) */}
-              <div className="desktop-header" style={styles.gridHeaderRow}>
-                <span style={{flex:1}}>TICKET / TYPE</span>
-                <span style={{flex:1.5}}>CUSTOMER</span>
-                <span style={{flex:1}}>STATUS</span>
-                <span style={{flex:0.5, textAlign:'right'}}>ACTION</span>
-              </div>
-
-              {requests.map(req => (
-                <div key={req.id} style={styles.orderRow}>
-                  
-                  {/* COL 1: Ticket Info */}
-                  <div style={{flex:1}}>
-                    <div style={styles.ticketTag}>{req.ticket_code}</div>
-                    <div style={{marginTop:'5px', fontWeight:'700', fontSize:'15px'}}>{req.letter_type}</div>
-                    <div style={styles.microTag}>{req.category}</div>
-                  </div>
-
-                  {/* COL 2: Customer */}
-                  <div style={{flex:1.5}}>
-                    <div style={{fontWeight:'600'}}>{req.customer_name}</div>
-                    <a href={req.contact_link.includes('http') ? req.contact_link : `https://${req.contact_link}`} target="_blank" style={styles.link}>
-                      🔗 Contact Link
-                    </a>
-                  </div>
-
-                  {/* COL 3: STATUS DROPDOWN */}
-                  <div style={{flex:1}}>
-                    <label style={{fontSize:'10px', color:'#999', fontWeight:'700', display:'block', marginBottom:'4px'}}>CURRENT STAGE</label>
-                    <select 
-                      value={req.status} 
-                      onChange={(e) => updateStatus(req.id, e.target.value)}
-                      style={{...styles.statusSelect, ...styles[`status${req.status}`]}}
-                    >
-                      <option value="Pending">🕒 Pending</option>
-                      <option value="Processing">🔨 Crafting</option>
-                      <option value="Done">✅ Ready/Done</option>
-                    </select>
-                  </div>
-
-                  {/* COL 4: Actions */}
-                  <div style={{flex:0.5, textAlign:'right'}}>
-                    <button onClick={() => deleteRequest(req.id)} style={styles.iconBtnDanger}>🗑️</button>
-                  </div>
-                </div>
-              ))}
-              {requests.length === 0 && <p style={styles.emptyText}>No active orders.</p>}
-            </div>
+        {/* TOP BAR */}
+        <div className="no-print" style={styles.topBar}>
+          <h2 style={styles.pageTitle}>
+            {activeTab === 'inbox' && 'Order Management'}
+            {activeTab === 'factory' && 'QR Production Factory'}
+            {activeTab === 'digital' && 'Digital Letter Archive'}
+          </h2>
+          <div style={styles.userProfile}>
+             <div style={styles.statusDot}></div>
+             <span>Admin Online</span>
           </div>
         </div>
-      )}
 
-      {/* === TAB 2: FACTORY (QR CODES) === */}
-      {activeTab === 'factory' && (
-        <div style={styles.content}>
-          
-          <div style={styles.grid2}>
-            {/* LEFT: GENERATOR & MAINTENANCE */}
-            <div style={{display:'flex', flexDirection:'column', gap:'20px'}}>
-              
-              <div style={styles.card}>
-                <h3 style={styles.cardTitle}>Generate Stickers</h3>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Base URL</label>
-                  <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} style={styles.input} />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Quantity</label>
-                  <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} style={styles.input} />
-                </div>
-                <button onClick={generateAndSave} style={styles.primaryBtn}>Create Batch</button>
-                {generatedCodes.length > 0 && <button onClick={() => window.print()} style={{...styles.secondaryBtn, marginTop:'10px', width:'100%'}}>🖨️ Print Preview</button>}
-              </div>
-
-              {/* MAINTENANCE CONSOLE (Fixed the cleanup button issue) */}
-              <div style={styles.card}>
-                 <h3 style={{...styles.cardTitle, color:'#c0392b'}}>Maintenance Console</h3>
-                 <p style={{fontSize:'12px', color:'#666', marginBottom:'15px'}}>Clean up the database.</p>
-                 <div style={{display:'grid', gap:'10px'}}>
-                    <button onClick={deleteUsed} style={styles.consoleBtn}>🧹 Clear Used QRs</button>
-                    <button onClick={deleteUnused} style={styles.consoleBtn}>🧹 Clear Unused QRs</button>
-                    <button onClick={deleteAllStickers} style={{...styles.consoleBtn, color:'#c0392b', borderColor:'#ffcccc'}}>⚠️ Delete EVERYTHING</button>
-                 </div>
-              </div>
-
+        {/* --- TAB 1: INBOX (ORDERS) --- */}
+        {activeTab === 'inbox' && (
+          <div className="fade-in">
+            {/* STATS CARDS */}
+            <div style={styles.statsGrid}>
+              <StatCard title="Total Orders" value={requests.length} icon="📦" />
+              <StatCard title="Pending" value={requests.filter(r => r.status === 'Pending').length} icon="⏳" color="#f59e0b" />
+              <StatCard title="Completed" value={requests.filter(r => r.status === 'Done').length} icon="✅" color="#10b981" />
             </div>
 
-            {/* RIGHT: DATABASE LIST */}
-            <div style={styles.card}>
-              <div style={styles.tableHeader}>
-                <h3 style={styles.cardTitle}>Database ({dbCodes.length})</h3>
-                <button onClick={fetchCodes} style={styles.secondaryBtn}>Refresh</button>
+            <div style={styles.panel}>
+              <div style={styles.panelHeader}>
+                <h3>Recent Orders</h3>
+                <div style={{display:'flex', gap:'10px'}}>
+                   <button onClick={fetchRequests} style={styles.outlineBtn}>Refresh Data</button>
+                </div>
               </div>
               
-              <div style={styles.tableWrapper}>
+              <div style={styles.tableContainer}>
                 <table style={styles.table}>
-                  <thead>
+                  <thead style={styles.thead}>
                     <tr>
-                      <th style={styles.th}>ID</th>
-                      <th style={styles.th}>Status</th>
-                      <th style={styles.thRight}>Action</th>
+                      <th style={styles.th}>TICKET ID</th>
+                      <th style={styles.th}>CUSTOMER</th>
+                      <th style={styles.th}>TYPE</th>
+                      <th style={styles.th}>STATUS</th>
+                      <th style={styles.th}>ACTION</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dbCodes.map(row => (
-                      <tr key={row.id}>
-                        <td style={styles.td}><span style={{fontFamily:'monospace'}}>{row.id}</span></td>
-                        <td style={styles.td}>{row.video_url ? <Badge type="used">Used</Badge> : <Badge type="empty">Empty</Badge>}</td>
-                        <td style={styles.tdRight}>
-                          {row.video_url && <button onClick={() => setPreviewVideo(row.video_url)} style={styles.textBtn}>▶ Watch</button>}
-                          <button onClick={() => setViewQr({link: `${baseUrl}/${row.id}`, id: row.id})} style={styles.iconBtn}>👁️</button>
-                          <button onClick={() => deleteCode(row.id)} style={styles.iconBtnDanger}>🗑️</button>
+                    {requests.map(req => (
+                      <tr key={req.id} style={styles.tr}>
+                        <td style={styles.td}><span style={styles.monoBadge}>{req.ticket_code}</span></td>
+                        <td style={styles.td}>
+                          <div style={{fontWeight:'600'}}>{req.customer_name}</div>
+                          <a href={req.contact_link.includes('http') ? req.contact_link : `https://${req.contact_link}`} target="_blank" style={styles.link}>
+                            View Contact
+                          </a>
+                        </td>
+                        <td style={styles.td}>
+                           <span style={styles.categoryBadge}>{req.category}</span>
+                           <div style={{fontSize:'12px', marginTop:'4px'}}>{req.letter_type}</div>
+                        </td>
+                        <td style={styles.td}>
+                          <select 
+                            value={req.status} 
+                            onChange={(e) => updateStatus(req.id, e.target.value)}
+                            style={{...styles.statusSelect, ...styles[`status${req.status}`]}}
+                          >
+                            <option value="Pending">Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Done">Completed</option>
+                          </select>
+                        </td>
+                        <td style={styles.td}>
+                          <button onClick={() => deleteRequest(req.id)} style={styles.iconBtnDanger}>🗑️</button>
                         </td>
                       </tr>
                     ))}
+                    {requests.length === 0 && <tr><td colSpan="5" style={styles.emptyState}>No orders found.</td></tr>}
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
+        )}
 
-          {/* PRINT AREA (Hidden unless printing) */}
-          <div className="printable-area" style={{display:'none'}}>
-            <h2 style={{textAlign:'center', marginBottom:'20px'}}>PaperPlay Stickers</h2>
-            <div style={styles.previewGrid}>
-              {generatedCodes.map(item => (
-                <div key={item.id} style={styles.qrItem}>
-                  <QRCode value={item.link} size={60} />
-                  <p style={styles.qrText}>{item.id}</p>
+        {/* --- TAB 2: FACTORY --- */}
+        {activeTab === 'factory' && (
+          <div className="fade-in">
+             <div style={styles.splitLayout}>
+               
+               {/* GENERATOR */}
+               <div style={styles.panel}>
+                  <h3 style={styles.panelTitle}>Generate QR Batch</h3>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Base Application URL</label>
+                    <input type="text" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} style={styles.input} />
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.label}>Quantity to Generate</label>
+                    <input type="number" value={count} onChange={e => setCount(Number(e.target.value))} style={styles.input} />
+                  </div>
+                  <button onClick={generateAndSave} style={styles.primaryBtn}>Generate Batch</button>
+
+                  <div style={styles.maintenanceBox}>
+                     <h4 style={{fontSize:'12px', color:'#ef4444', marginBottom:'10px'}}>SYSTEM MAINTENANCE</h4>
+                     <div style={{display:'grid', gap:'10px'}}>
+                        <button onClick={deleteUsed} style={styles.dangerOutlineBtn}>Clean Used QRs</button>
+                        <button onClick={deleteUnused} style={styles.dangerOutlineBtn}>Clean Unused QRs</button>
+                     </div>
+                  </div>
+               </div>
+
+               {/* DATABASE LIST */}
+               <div style={styles.panel}>
+                  <div style={styles.panelHeader}>
+                    <h3>Database ({dbCodes.length})</h3>
+                    <button onClick={fetchCodes} style={styles.outlineBtn}>Refresh</button>
+                  </div>
+                  <div style={styles.tableContainer}>
+                    <table style={styles.table}>
+                      <thead style={styles.thead}>
+                        <tr>
+                          <th style={styles.th}>ID</th>
+                          <th style={styles.th}>STATE</th>
+                          <th style={styles.th}>ACTION</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dbCodes.map(row => (
+                           <tr key={row.id} style={styles.tr}>
+                             <td style={styles.td}><span style={styles.monoBadge}>{row.id}</span></td>
+                             <td style={styles.td}>{row.video_url ? <Badge type="used">Active</Badge> : <Badge type="empty">Empty</Badge>}</td>
+                             <td style={styles.td}>
+                                <div style={{display:'flex', gap:'5px'}}>
+                                  {row.video_url && <button onClick={() => setPreviewVideo(row.video_url)} style={styles.iconBtn}>▶</button>}
+                                  <button onClick={() => setViewQr({link: `${baseUrl}/${row.id}`, id: row.id})} style={styles.iconBtn}>👁️</button>
+                                  <button onClick={() => deleteCode(row.id)} style={styles.iconBtnDanger}>🗑️</button>
+                                </div>
+                             </td>
+                           </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+               </div>
+             </div>
+             
+             {/* PRINT AREA (Hidden) */}
+             <div className="printable-area" style={{display:'none'}}>
+               {generatedCodes.length > 0 && (
+                 <div style={styles.printHeader}>
+                   <button onClick={() => window.print()} style={styles.primaryBtn}>🖨️ Print Now</button>
+                 </div>
+               )}
+                <div style={styles.previewGrid}>
+                  {generatedCodes.map(item => (
+                    <div key={item.id} style={styles.qrItem}>
+                      <QRCode value={item.link} size={80} />
+                      <p style={styles.qrText}>{item.id}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* === TAB 3: DIGITAL ARCHIVE === */}
-      {activeTab === 'digital' && (
-        <div style={styles.content}>
-          <div style={styles.card}>
-            <div style={styles.tableHeader}>
-              <h3 style={styles.cardTitle}>Digital Letters</h3>
-              <div style={{display:'flex', gap:'10px'}}>
-                <button onClick={fetchDigitalLetters} style={styles.secondaryBtn}>Refresh</button>
-                <button onClick={deleteAllDigitalLetters} style={styles.cleanupBtn}>Clear All</button>
+        {/* --- TAB 3: DIGITAL ARCHIVE --- */}
+        {activeTab === 'digital' && (
+          <div className="fade-in">
+            <div style={styles.panel}>
+              <div style={styles.panelHeader}>
+                <h3>Digital Letters</h3>
+                <button onClick={fetchDigitalLetters} style={styles.outlineBtn}>Refresh</button>
+              </div>
+              <div style={styles.tableContainer}>
+                <table style={styles.table}>
+                  <thead style={styles.thead}>
+                    <tr>
+                       <th style={styles.th}>TICKET</th>
+                       <th style={styles.th}>SENDER</th>
+                       <th style={styles.th}>THEME</th>
+                       <th style={styles.th}>UNLOCK DATE</th>
+                       <th style={styles.th}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {digitalLetters.map(l => (
+                      <tr key={l.id} style={styles.tr}>
+                         <td style={styles.td}><span style={styles.monoBadge}>{l.ticket_code}</span></td>
+                         <td style={styles.td}><b>{l.sender_name}</b></td>
+                         <td style={styles.td}><span style={styles.categoryBadge}>{l.theme}</span></td>
+                         <td style={styles.td}>{l.unlock_at ? new Date(l.unlock_at).toLocaleDateString() : 'Instant'}</td>
+                         <td style={styles.td}>
+                           <button onClick={() => setViewLetter(l)} style={styles.iconBtn}>👁️</button>
+                           <button onClick={() => deleteDigitalLetter(l.id)} style={styles.iconBtnDanger}>🗑️</button>
+                         </td>
+                      </tr>
+                    ))}
+                    {digitalLetters.length === 0 && <tr><td colSpan="5" style={styles.emptyState}>Archive is empty.</td></tr>}
+                  </tbody>
+                </table>
               </div>
             </div>
-            <div style={styles.tableWrapper}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Sender</th>
-                    <th style={styles.th}>Theme</th>
-                    <th style={styles.th}>Ticket</th>
-                    <th style={styles.th}>Unlock</th>
-                    <th style={styles.thRight}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {digitalLetters.map(l => (
-                    <tr key={l.id}>
-                      <td style={styles.td}><b>{l.sender_name}</b></td>
-                      <td style={styles.td}><span style={styles.tag}>{l.theme}</span></td>
-                      <td style={styles.td}><span style={styles.ticketTag}>{l.ticket_code}</span></td>
-                      <td style={styles.td}>{l.unlock_at ? new Date(l.unlock_at).toLocaleDateString() : 'Instant'}</td>
-                      <td style={styles.tdRight}>
-                        <button onClick={() => setViewLetter(l)} style={{...styles.textBtn, marginRight:'10px'}}>Read</button>
-                        <button onClick={() => deleteDigitalLetter(l.id)} style={styles.iconBtnDanger}>🗑️</button>
-                      </td>
-                    </tr>
-                  ))}
-                  {digitalLetters.length === 0 && <tr><td colSpan="5" style={{textAlign:'center', padding:'20px', color:'#999'}}>No letters yet.</td></tr>}
-                </tbody>
-              </table>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+
+      </div>
 
       {/* MODALS */}
       {previewVideo && <Modal onClose={() => setPreviewVideo(null)}><video src={previewVideo} controls autoPlay style={{ width: '100%', borderRadius: '10px' }} /></Modal>}
-      {viewQr && <Modal onClose={() => setViewQr(null)}><QRCode value={viewQr.link} size={150} /><p style={{marginTop:'10px', color: '#333', fontWeight:'bold'}}>{viewQr.id}</p></Modal>}
+      {viewQr && <Modal onClose={() => setViewQr(null)}><QRCode value={viewQr.link} size={150} /><p style={{marginTop:'15px', fontWeight:'bold', fontFamily:'monospace'}}>{viewQr.id}</p></Modal>}
       {viewLetter && <Modal onClose={() => setViewLetter(null)}>
-        <h3 style={{marginTop:0, color: '#333'}}>Letter Content</h3>
-        <div style={{background: '#f9f9f9', padding:'20px', borderRadius:'10px', textAlign:'left', whiteSpace:'pre-wrap', maxHeight:'300px', overflowY:'auto', border:'1px solid #eee', color: '#333', fontSize:'14px', fontFamily: 'serif'}}>
+        <h3 style={{marginTop:0}}>Letter Preview</h3>
+        <div style={{background: '#f8fafc', padding:'20px', borderRadius:'8px', textAlign:'left', whiteSpace:'pre-wrap', maxHeight:'400px', overflowY:'auto', border:'1px solid #e2e8f0', fontFamily:'serif'}}>
           {viewLetter.message_body}
         </div>
       </Modal>}
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body { margin: 0; padding: 0; }
+        * { box-sizing: border-box; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
         @media print { 
           .no-print { display: none !important; } 
-          .printable-area { display: block !important; } 
-          body { background: white; }
-        }
-        @media (max-width: 768px) {
-          .desktop-header { display: none !important; }
-          .order-row { flex-direction: column; align-items: flex-start; gap: 15px; }
-          .order-row > div { width: 100%; text-align: left !important; }
-          .grid2 { grid-template-columns: 1fr; }
+          .printable-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; }
         }
       `}</style>
     </div>
   )
 }
 
-// --- PROFESSIONAL STYLES ---
-const styles = {
-  // LAYOUT
-  dashboard: { minHeight: '100vh', background: '#f5f5f7', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#1a1a1a', paddingBottom: '40px' },
-  content: { maxWidth: '1000px', margin: '0 auto', padding: '0 20px', marginBottom: '20px' },
-  grid2: { display: 'grid', gridTemplateColumns: '350px 1fr', gap: '20px' },
-
-  // HEADER & STATS
-  header: { background: 'white', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e5e5e5', position: 'sticky', top: 0, zIndex: 100, marginBottom: '20px' },
-  brandIcon: { width: '36px', height: '36px', background: '#1a1a1a', color: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '18px' },
-  brandText: { margin: '0', fontSize: '18px', fontWeight: '800', color: '#1a1a1a', letterSpacing: '-0.5px' },
-  
-  statsContainer: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', maxWidth: '1000px', margin: '0 auto 20px', padding: '0 20px' },
-  statBox: { background: 'white', padding: '15px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.03)' },
-  statNum: { display: 'block', fontSize: '24px', fontWeight: '800', color: '#1a1a1a' },
-  statLabel: { fontSize: '10px', fontWeight: '700', color: '#aaa', letterSpacing: '1px' },
-
-  // LOGIN
-  loginPage: { minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f5f5f7' },
-  loginCard: { background: 'white', padding: '40px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', textAlign: 'center', width: '320px' },
-  logoCircle: { width: '60px', height: '60px', background: '#1a1a1a', borderRadius: '50%', color: 'white', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 10px 20px rgba(0,0,0,0.2)' },
-  loginTitle: { margin: '0 0 25px 0', fontSize: '22px', fontWeight: '800', color: '#1a1a1a' },
-
-  // TABS
-  tabs: { background: '#e0e0e0', padding: '4px', borderRadius: '12px', display: 'inline-flex', gap: '4px', marginBottom: '10px' },
-  tab: { background: 'transparent', border: 'none', padding: '8px 20px', borderRadius: '9px', fontSize: '13px', fontWeight: '600', color: '#666', cursor: 'pointer', transition: '0.2s' },
-  tabActive: { background: 'white', border: 'none', padding: '8px 20px', borderRadius: '9px', fontSize: '13px', fontWeight: '700', color: '#1a1a1a', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', cursor: 'default' },
-  badge: { background: '#1a1a1a', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '10px', marginLeft: '5px' },
-
-  // CARDS & GRID
-  card: { background: 'white', borderRadius: '16px', padding: '25px', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.04)' },
-  cardTitle: { margin: '0 0 20px 0', fontSize: '15px', fontWeight: '800', color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  
-  // INBOX SPECIFIC
-  gridHeaderRow: { display: 'flex', padding: '0 15px 10px', borderBottom: '2px solid #f5f5f7', marginBottom: '10px', color: '#aaa', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' },
-  orderRow: { display: 'flex', alignItems: 'center', background: 'white', padding: '15px', borderRadius: '12px', border: '1px solid #f0f0f0', marginBottom: '10px', transition: 'transform 0.1s' },
-  ticketTag: { fontFamily: 'monospace', fontWeight: '700', background: '#f0f0f0', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', color: '#333', display: 'inline-block' },
-  microTag: { fontSize: '10px', fontWeight: '700', background: '#eee', padding: '2px 6px', borderRadius: '4px', color: '#666', marginTop: '4px', display: 'inline-block' },
-  
-  // STATUS SELECT
-  statusSelect: { padding: '8px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', border: '1px solid transparent', cursor: 'pointer', width: '100%', outline: 'none' },
-  statusPending: { background: '#fff9db', color: '#e67e22' },
-  statusProcessing: { background: '#e3fafc', color: '#0984e3' },
-  statusDone: { background: '#d4edda', color: '#27ae60' },
-
-  // FORM ELEMENTS
-  inputGroup: { marginBottom: '15px' },
-  label: { display: 'block', fontSize: '11px', fontWeight: '700', color: '#aaa', marginBottom: '6px', textTransform: 'uppercase' },
-  input: { width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #e0e0e0', background: '#f9f9f9', fontSize: '14px', outline: 'none', color: '#333', transition: 'border 0.2s' },
-  
-  // BUTTONS
-  primaryBtn: { width: '100%', background: '#1a1a1a', color: 'white', border: 'none', padding: '14px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' },
-  secondaryBtn: { background: '#f0f0f0', color: '#333', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '12px' },
-  logoutBtn: { background: 'white', color: '#c0392b', border: '1px solid #ffe3e3', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
-  cleanupBtn: { background: '#fff0f0', color: '#c0392b', border: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
-  consoleBtn: { width: '100%', textAlign: 'left', padding: '12px', background: 'white', border: '1px solid #eee', borderRadius: '8px', fontSize: '13px', color: '#555', cursor: 'pointer', marginBottom: '0' },
-  
-  textBtn: { background: 'transparent', color: '#0984e3', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '600', padding: '5px' },
-  iconBtn: { background: '#f5f5f7', border: 'none', width: '34px', height: '34px', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: '5px', color: '#333' },
-  iconBtnDanger: { background: '#fff0f0', border: 'none', width: '34px', height: '34px', borderRadius: '8px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#c0392b' },
-
-  // TABLES
-  tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: '13px' },
-  th: { textAlign: 'left', padding: '15px', borderBottom: '2px solid #f5f5f7', color: '#aaa', fontWeight: '700', fontSize: '11px', letterSpacing: '0.5px' },
-  thRight: { textAlign: 'right', padding: '15px', borderBottom: '2px solid #f5f5f7', color: '#aaa', fontWeight: '700', fontSize: '11px', letterSpacing: '0.5px' },
-  td: { padding: '15px', borderBottom: '1px solid #f9f9f9', color: '#333' },
-  tdRight: { padding: '15px', borderBottom: '1px solid #f9f9f9', textAlign: 'right' },
-  
-  // MISC
-  previewGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '15px' },
-  qrItem: { border: '1px solid #eee', borderRadius: '10px', padding: '10px', textAlign: 'center' },
-  qrText: { margin: '5px 0 0', fontSize: '10px', color: '#888', fontFamily: 'monospace' },
-  emptyText: { color: '#ccc', fontSize: '14px', textAlign: 'center', padding: '40px' },
-  tag: { background: '#f0f0f0', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', color: '#555', fontWeight: '600' },
-  link: { fontSize: '12px', color: '#0984e3', textDecoration: 'none', display: 'inline-block', marginTop: '5px', fontWeight: '500' },
-}
+// --- SUB-COMPONENTS ---
+const StatCard = ({ title, value, icon, color = '#3b82f6' }) => (
+  <div style={styles.statCard}>
+    <div>
+      <div style={styles.statTitle}>{title}</div>
+      <div style={styles.statValue}>{value}</div>
+    </div>
+    <div style={{...styles.statIcon, background: `${color}20`, color: color}}>{icon}</div>
+  </div>
+)
 
 const Badge = ({ type, children }) => {
-  const colors = {
-    used: { bg: '#fff0f0', text: '#e05d5d' },
-    empty: { bg: '#e3fafc', text: '#007b85' },
-  }
-  return <span style={{ background: colors[type].bg, color: colors[type].text, padding: '4px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase' }}>{children}</span>
+  const c = type === 'used' ? {bg:'#dcfce7', t:'#15803d'} : {bg:'#f3f4f6', t:'#6b7280'}
+  return <span style={{background:c.bg, color:c.t, padding:'2px 8px', borderRadius:'12px', fontSize:'11px', fontWeight:'700'}}>{children}</span>
 }
 
 const Modal = ({ onClose, children }) => (
-  <div className="modal-overlay no-print" onClick={onClose} style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', background:'rgba(0,0,0,0.6)', backdropFilter:'blur(4px)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:999}}>
-    <div className="modal-content" onClick={e => e.stopPropagation()} style={{background:'white', padding:'30px', borderRadius:'24px', maxWidth:'500px', width:'90%', textAlign:'center', position:'relative', boxShadow:'0 20px 60px rgba(0,0,0,0.15)'}}>
-      <button onClick={onClose} style={{position:'absolute', top:'15px', right:'15px', background:'#f0f0f0', width:'30px', height:'30px', borderRadius:'50%', border:'none', fontSize:'14px', cursor:'pointer', color: '#333'}}>✕</button>
+  <div className="no-print" onClick={onClose} style={styles.modalOverlay}>
+    <div onClick={e => e.stopPropagation()} style={styles.modalContent}>
       {children}
     </div>
   </div>
 )
+
+// --- PROFESSIONAL CSS-IN-JS ---
+const styles = {
+  // LOGIN SCREEN
+  loginPage: { height: '100vh', width: '100vw', background: '#111827', display: 'flex', justifyContent: 'center', alignItems: 'center', fontFamily: '"Inter", sans-serif' },
+  loginContainer: { width: '400px', background: 'rgba(31, 41, 55, 0.5)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)', padding: '40px', borderRadius: '24px', textAlign: 'center' },
+  loginHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '10px' },
+  logoSquare: { width: '50px', height: '50px', background: 'white', color: 'black', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', fontWeight: 'bold', marginBottom: '15px' },
+  loginTitle: { color: 'white', fontSize: '24px', fontWeight: '700', margin: 0 },
+  loginLabel: { display: 'block', textAlign: 'left', color: '#9ca3af', fontSize: '11px', fontWeight: '700', marginBottom: '8px', letterSpacing: '1px' },
+  loginInput: { width: '100%', padding: '12px 16px', background: '#1f2937', border: '1px solid #374151', color: 'white', borderRadius: '8px', outline: 'none', fontSize: '16px', textAlign: 'center', letterSpacing: '5px' },
+  loginBtn: { width: '100%', padding: '14px', background: 'white', color: 'black', fontWeight: '700', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: '0.2s' },
+
+  // DASHBOARD LAYOUT
+  dashboard: { display: 'grid', gridTemplateColumns: '260px 1fr', minHeight: '100vh', fontFamily: '"Inter", sans-serif', background: '#f3f4f6' },
+  
+  // SIDEBAR
+  sidebar: { background: '#111827', color: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '20px', height: '100vh', position: 'sticky', top: 0 },
+  brandContainer: { display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 10px 30px 10px', borderBottom: '1px solid #374151', marginBottom: '20px' },
+  brandIcon: { width: '32px', height: '32px', background: 'white', color: 'black', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' },
+  brandName: { fontWeight: '700', fontSize: '14px', letterSpacing: '1px' },
+  
+  navMenu: { display: 'flex', flexDirection: 'column', gap: '5px' },
+  navLabel: { fontSize: '11px', fontWeight: '700', color: '#6b7280', marginTop: '20px', marginBottom: '10px', paddingLeft: '10px' },
+  navItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderRadius: '8px', background: 'transparent', color: '#d1d5db', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: '14px', fontWeight: '500', transition: '0.2s' },
+  navItemActive: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderRadius: '8px', background: '#374151', color: 'white', border: 'none', cursor: 'default', textAlign: 'left', fontSize: '14px', fontWeight: '600' },
+  navBadge: { background: '#ef4444', color: 'white', fontSize: '10px', padding: '2px 8px', borderRadius: '10px' },
+  logoutItem: { background: 'transparent', border: '1px solid #374151', color: '#9ca3af', padding: '12px', borderRadius: '8px', cursor: 'pointer', width: '100%', textAlign: 'center', fontSize: '13px' },
+
+  // MAIN CONTENT
+  mainContent: { padding: '40px', overflowY: 'auto', height: '100vh' },
+  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
+  pageTitle: { margin: 0, fontSize: '24px', fontWeight: '800', color: '#111827' },
+  userProfile: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#4b5563', background: 'white', padding: '8px 16px', borderRadius: '20px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' },
+  statusDot: { width: '8px', height: '8px', background: '#10b981', borderRadius: '50%' },
+
+  // STATS
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' },
+  statCard: { background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  statTitle: { fontSize: '13px', color: '#6b7280', fontWeight: '600', marginBottom: '5px' },
+  statValue: { fontSize: '28px', fontWeight: '800', color: '#111827' },
+  statIcon: { width: '40px', height: '40px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' },
+
+  // PANELS & TABLES
+  panel: { background: 'white', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', overflow: 'hidden', marginBottom: '20px' },
+  panelHeader: { padding: '20px 30px', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  panelTitle: { margin: 0, fontSize: '16px', fontWeight: '700' },
+  tableContainer: { overflowX: 'auto' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' },
+  thead: { background: '#f9fafb', color: '#6b7280' },
+  th: { padding: '16px 30px', fontWeight: '600', fontSize: '11px', letterSpacing: '0.5px' },
+  tr: { borderBottom: '1px solid #f3f4f6', transition: 'background 0.1s' },
+  td: { padding: '16px 30px', color: '#374151' },
+  emptyState: { padding: '40px', textAlign: 'center', color: '#9ca3af' },
+
+  // FORM ELEMENTS
+  splitLayout: { display: 'grid', gridTemplateColumns: '350px 1fr', gap: '25px' },
+  formGroup: { marginBottom: '20px' },
+  label: { display: 'block', fontSize: '12px', fontWeight: '600', color: '#374151', marginBottom: '8px' },
+  input: { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none' },
+  primaryBtn: { background: '#111827', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', width: '100%' },
+  outlineBtn: { background: 'white', color: '#374151', border: '1px solid #d1d5db', padding: '6px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
+  dangerOutlineBtn: { background: '#fff', color: '#ef4444', border: '1px solid #fee2e2', padding: '8px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', width: '100%' },
+  
+  // BADGES & BUTTONS
+  monoBadge: { fontFamily: 'monospace', background: '#f3f4f6', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', color: '#111827' },
+  categoryBadge: { background: '#eff6ff', color: '#3b82f6', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' },
+  link: { fontSize: '12px', color: '#3b82f6', textDecoration: 'none', fontWeight: '500' },
+  
+  statusSelect: { padding: '6px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', border: '1px solid transparent', cursor: 'pointer' },
+  statusPending: { background: '#fef3c7', color: '#d97706' },
+  statusProcessing: { background: '#e0f2fe', color: '#0284c7' },
+  statusDone: { background: '#dcfce7', color: '#16a34a' },
+
+  iconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', padding: '5px' },
+  iconBtnDanger: { background: '#fee2e2', border: 'none', cursor: 'pointer', fontSize: '14px', width:'28px', height:'28px', borderRadius:'6px', display:'flex', alignItems:'center', justifyContent:'center' },
+
+  // PRINT & MAINTENANCE
+  maintenanceBox: { marginTop: '30px', padding: '20px', background: '#fef2f2', borderRadius: '12px', border: '1px dashed #fca5a5' },
+  previewGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '20px', padding: '20px' },
+  qrItem: { border: '1px solid #eee', padding: '15px', borderRadius: '8px', textAlign: 'center' },
+  qrText: { fontSize: '10px', marginTop: '10px', fontFamily: 'monospace' },
+
+  // MODAL
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+  modalContent: { background: 'white', padding: '30px', borderRadius: '16px', maxWidth: '500px', width: '90%', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }
+}
