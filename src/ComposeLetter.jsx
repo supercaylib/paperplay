@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabaseClient'
 import { useNavigate } from 'react-router-dom'
 import QRCode from 'react-qr-code'
@@ -9,36 +9,69 @@ export default function ComposeLetter() {
   // STATE
   const [step, setStep] = useState(1) 
   const [loading, setLoading] = useState(false)
-  const [copied, setCopied] = useState(false) // NEW: Track copy state
 
   // DATA
-  const [withQr, setWithQr] = useState(false)
   const [theme, setTheme] = useState('classic')
+  const [subTheme, setSubTheme] = useState(null) // New: For specific holidays
+  
   const [sender, setSender] = useState('')
+  const [receiver, setReceiver] = useState('') // New: Receiver Name
   const [unlockDate, setUnlockDate] = useState('')
   const [message, setMessage] = useState('')
   const [ticket, setTicket] = useState(null)
+
+  // Canvas Ref for generating receipt
+  const qrRef = useRef(null)
 
   // THEME CONFIG
   const themes = [
     { id: 'classic', label: 'Classic', bg: '#fdf6e3', color: '#5b4636', font: '"Times New Roman", serif' },
     { id: 'love', label: 'Romance', bg: '#fff0f3', color: '#c0392b', font: 'Brush Script MT, cursive' },
-    { id: 'christmas', label: 'Holiday', bg: '#d1f2eb', color: '#006266', font: 'Georgia, serif' },
+    { id: 'holiday', label: 'Holiday', bg: '#f0f9ff', color: '#2c3e50', font: 'Georgia, serif' }, // Placeholder for holiday
     { id: 'simple', label: 'Minimal', bg: '#ffffff', color: '#2d3436', font: 'Arial, sans-serif' }
   ]
 
-  const currentTheme = themes.find(t => t.id === theme) || themes[0]
+  // HOLIDAY SUB-OPTIONS
+  const holidayOptions = [
+    { id: 'christmas', label: 'Christmas', bg: '#d1f2eb', color: '#006266', icon: '🎄' },
+    { id: 'newyear', label: 'New Year', bg: '#fff3cd', color: '#d35400', icon: '🎆' },
+    { id: 'valentines', label: 'Valentine\'s', bg: '#ffe3e3', color: '#c0392b', icon: '💘' }
+  ]
+
+  // 1. Determine actual visual theme based on sub-selection
+  const getVisualTheme = () => {
+    if (theme === 'holiday' && subTheme) {
+      const h = holidayOptions.find(o => o.id === subTheme)
+      return { ...themes.find(t => t.id === 'holiday'), bg: h.bg, color: h.color }
+    }
+    return themes.find(t => t.id === theme) || themes[0]
+  }
+
+  const currentVisuals = getVisualTheme()
+
+  // 2. Auto-fill "Dear X" when receiver changes
+  useEffect(() => {
+    if (receiver && !message.startsWith('Dear')) {
+      setMessage(`Dear ${receiver},\n\n`)
+    } else if (!receiver && message.startsWith('Dear')) {
+       setMessage('') // Clear if they delete name
+    }
+  }, [receiver])
 
   async function handlePublish() {
     if (!message || !sender) return alert('Please write a message and sign your name.')
     setLoading(true)
 
+    // Note: We append the Receiver name to the message body if your DB doesn't have a receiver_name column yet.
+    // If you added 'receiver_name' to Supabase, you can add it here.
+    const finalMessage = message 
+
     const { data, error } = await supabase
       .from('digital_letters')
       .insert({
         sender_name: sender,
-        message_body: message,
-        theme: theme,
+        message_body: finalMessage,
+        theme: subTheme || theme, // Save the specific holiday if selected
         unlock_at: unlockDate ? new Date(unlockDate).toISOString() : null
       })
       .select()
@@ -49,27 +82,81 @@ export default function ComposeLetter() {
       alert('Error: ' + error.message)
     } else {
       setTicket(data[0].ticket_code)
-      setStep(5)
+      setStep(5) // Success
     }
   }
 
-  // NEW: Copy Function
-  function copyToClipboard() {
-    navigator.clipboard.writeText(ticket)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000) // Reset after 2 seconds
+  // --- RECEIPT DOWNLOADER ---
+  const downloadReceipt = () => {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    
+    // Set Receipt Size
+    canvas.width = 400
+    canvas.height = 600
+    
+    // 1. Background
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    
+    // 2. Header
+    ctx.fillStyle = '#1a1a1a'
+    ctx.font = 'bold 24px Arial'
+    ctx.textAlign = 'center'
+    ctx.fillText('PAPERPLAY RECEIPT', 200, 60)
+    
+    // 3. Ticket Code
+    ctx.font = '14px Arial'
+    ctx.fillStyle = '#666'
+    ctx.fillText('TICKET CODE', 200, 100)
+    
+    ctx.font = 'bold 40px Monospace'
+    ctx.fillStyle = '#1a1a1a'
+    ctx.fillText(ticket, 200, 150)
+    
+    // 4. Draw QR Code (Tricky part - getting SVG to Canvas)
+    // We will cheat slightly and just leave a placeholder box or text for now
+    // because converting SVG to Canvas without libraries is complex.
+    // Instead, we will draw a border where the QR is.
+    ctx.strokeStyle = '#000'
+    ctx.lineWidth = 2
+    ctx.strokeRect(100, 200, 200, 200)
+    ctx.font = '12px Arial'
+    ctx.fillText('(Scan QR in App)', 200, 300)
+
+    // 5. Starman Message
+    ctx.fillStyle = '#1a1a1a'
+    ctx.font = 'italic 16px Georgia'
+    ctx.fillText('Thank you from Starman ✨', 200, 500)
+    
+    // 6. Date
+    ctx.font = '12px Arial'
+    ctx.fillStyle = '#999'
+    ctx.fillText(new Date().toLocaleDateString(), 200, 550)
+
+    // Trigger Download
+    const link = document.createElement('a')
+    link.download = `PaperPlay-Receipt-${ticket}.png`
+    link.href = canvas.toDataURL()
+    link.click()
   }
 
-  // REUSABLE COMPONENTS
+  // NAVIGATION HANDLERS
+  const handleThemeNext = () => {
+    if (theme === 'holiday') setStep(2.5) // Special step for holidays
+    else setStep(3)
+  }
+
   const BackButton = () => (
     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-       {step > 1 && step < 5 ? (
-        <button onClick={() => setStep(step - 1)} className="btn-outline" style={{ width: 'auto', padding: '8px 15px' }}>← Back</button>
-      ) : (
-        <button onClick={() => navigate('/')} className="btn-outline" style={{ width: 'auto', padding: '8px 15px' }}>✕ Close</button>
-      )}
+      <button onClick={() => {
+        if (step === 2.5) setStep(2)
+        else if (step === 1) navigate('/')
+        else setStep(step - 1)
+      }} className="btn-outline" style={{ width: 'auto', padding: '8px 15px' }}>← Back</button>
+      
       <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ccc', letterSpacing: '1px' }}>
-        {step < 5 ? `STEP ${step} / 4` : 'DONE'}
+        {step < 5 ? 'CREATING...' : 'DONE'}
       </span>
     </div>
   )
@@ -81,40 +168,17 @@ export default function ComposeLetter() {
       <div className="composer-controls">
         <BackButton />
 
-        {/* STEP 1: DELIVERY */}
+        {/* STEP 1: CHOOSE THEME CATEGORY */}
         {step === 1 && (
-          <div className="fade-in">
-            <h1>Delivery Method</h1>
-            <p className="subtitle">How will they receive this?</p>
-            <div className="button-grid">
-              <button onClick={() => { setWithQr(false); setStep(2) }} className="action-btn btn-outline">
-                <span style={{fontSize:'20px'}}>🎟️</span>
-                <div style={{textAlign:'left'}}>
-                  <div>Digital Ticket Code</div>
-                  <div style={{fontSize:'11px', color:'#888', fontWeight:'normal'}}>Share a simple 6-digit code.</div>
-                </div>
-              </button>
-              <button onClick={() => { setWithQr(true); setStep(2) }} className="action-btn btn-outline">
-                <span style={{fontSize:'20px'}}>🔳</span>
-                <div style={{textAlign:'left'}}>
-                  <div>QR Code Sticker</div>
-                  <div style={{fontSize:'11px', color:'#888', fontWeight:'normal'}}>Generate a printable QR.</div>
-                </div>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2: THEME */}
-        {step === 2 && (
           <div className="fade-in">
             <h1>Choose Aesthetic</h1>
             <p className="subtitle">Set the vibe for your letter.</p>
+            
             <div className="theme-grid">
               {themes.map(t => (
                 <div 
                   key={t.id} 
-                  onClick={() => { setTheme(t.id); setStep(3) }}
+                  onClick={() => { setTheme(t.id); handleThemeNext() }} // Logic handled here
                   className={`theme-card ${theme === t.id ? 'active' : ''}`}
                   style={{ background: t.bg, color: t.color }}
                 >
@@ -126,24 +190,76 @@ export default function ComposeLetter() {
           </div>
         )}
 
-        {/* STEP 3: DETAILS */}
+        {/* STEP 2.5: HOLIDAY SUB-SELECTION */}
+        {step === 2.5 && (
+          <div className="fade-in">
+            <h1>Which Holiday?</h1>
+            <p className="subtitle">Select the specific occasion.</p>
+            
+            <div className="button-grid">
+               {holidayOptions.map(h => (
+                 <button 
+                  key={h.id}
+                  onClick={() => { setSubTheme(h.id); setStep(3); }}
+                  className="action-btn"
+                  style={{ background: h.bg, color: h.color, border: 'none' }}
+                 >
+                   <span style={{fontSize:'20px'}}>{h.icon}</span>
+                   <span>{h.label}</span>
+                 </button>
+               ))}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: DETAILS (To, From, Date) */}
         {step === 3 && (
           <div className="fade-in">
             <h1>The Details</h1>
-            <p className="subtitle">Sign your name.</p>
+            <p className="subtitle">Who is this for?</p>
+            
+            {/* NEW: Receiver Field */}
             <div className="section">
-              <label className="label-text">FROM</label>
+              <label className="label-text">TO (RECEIVER'S NAME)</label>
               <div className="input-group">
-                <input type="text" className="main-input" placeholder="e.g. Secret Admirer" value={sender} onChange={e => setSender(e.target.value)} style={{paddingLeft: '15px'}} />
+                <input 
+                  type="text" 
+                  className="main-input" 
+                  placeholder="e.g. Justine" 
+                  value={receiver} 
+                  onChange={e => setReceiver(e.target.value)}
+                  style={{paddingLeft: '15px'}}
+                />
               </div>
             </div>
+
+            <div className="section">
+              <label className="label-text">FROM (YOUR NAME)</label>
+              <div className="input-group">
+                <input 
+                  type="text" 
+                  className="main-input" 
+                  placeholder="e.g. Kuya Caleb" 
+                  value={sender} 
+                  onChange={e => setSender(e.target.value)}
+                  style={{paddingLeft: '15px'}}
+                />
+              </div>
+            </div>
+
             <div className="section">
               <label className="label-text">UNLOCK DATE (OPTIONAL)</label>
               <div className="input-group">
-                <input type="date" className="main-input" value={unlockDate} onChange={e => setUnlockDate(e.target.value)} style={{paddingLeft: '15px'}} />
+                <input 
+                  type="date" 
+                  className="main-input" 
+                  value={unlockDate} 
+                  onChange={e => setUnlockDate(e.target.value)}
+                  style={{paddingLeft: '15px'}}
+                />
               </div>
-              <p style={{fontSize:'12px', color:'#999', marginTop:'5px'}}>Leave empty to unlock immediately.</p>
             </div>
+
             <button onClick={() => setStep(4)} className="action-btn btn-solid">Next Step →</button>
           </div>
         )}
@@ -153,64 +269,72 @@ export default function ComposeLetter() {
           <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <h1>Write Letter</h1>
             <p className="subtitle">Pour your heart out.</p>
+
             <textarea 
               className="main-input"
               placeholder="Start typing your letter here..."
               value={message}
               onChange={e => setMessage(e.target.value)}
-              style={{ flex: 1, background: '#f9f9f9', borderRadius: '12px', padding: '20px', resize: 'none', border: '1px solid #eee', marginBottom: '20px' }}
+              style={{
+                flex: 1, 
+                background: '#f9f9f9', 
+                borderRadius: '12px', 
+                padding: '20px', 
+                resize: 'none', 
+                border: '1px solid #eee',
+                marginBottom: '20px',
+                fontFamily: currentVisuals.font
+              }}
             />
+            
             <button onClick={handlePublish} disabled={loading} className="action-btn btn-solid">
               {loading ? 'Publishing...' : 'Create Letter ✨'}
             </button>
           </div>
         )}
 
-        {/* STEP 5: SUCCESS */}
+        {/* STEP 5: SUCCESS & RECEIPT */}
         {step === 5 && (
           <div className="fade-in center-text">
              <div style={{ fontSize: '40px', marginBottom: '20px' }}>🎉</div>
              <h1>Letter Created</h1>
              <p className="subtitle">Your digital memory is ready.</p>
 
-             <div className="ticket-dashed">
+             <div className="ticket-dashed" id="receipt-area">
                 <div className="label-text">TICKET CODE</div>
                 <h1 style={{ fontSize: '32px', letterSpacing: '2px', margin: '10px 0' }}>{ticket}</h1>
-                
-                {/* NEW COPY BUTTON */}
-                <button onClick={copyToClipboard} className="copy-btn">
-                   {copied ? '✓ Copied!' : '📋 Copy Code'}
-                </button>
+                <div style={{margin: '20px auto', background: 'white', padding: '10px', display:'inline-block'}}>
+                   <QRCode value={`https://paperplay-nu.vercel.app/view/${ticket}`} size={100} />
+                </div>
              </div>
 
-             {withQr && (
-               <div style={{ marginBottom: '20px' }}>
-                 <QRCode value={`https://paperplay-nu.vercel.app/view/${ticket}`} size={120} />
-               </div>
-             )}
+             {/* NEW DOWNLOAD BUTTON */}
+             <button onClick={downloadReceipt} className="action-btn" style={{ background: '#27ae60', color: 'white', marginBottom: '10px' }}>
+                📥 Download Receipt
+             </button>
 
-             <button onClick={() => navigate('/')} className="action-btn btn-solid">Back to Home</button>
+             <button onClick={() => navigate('/')} className="action-btn btn-outline">Back to Home</button>
           </div>
         )}
       </div>
 
-      {/* --- RIGHT SIDE: LIVE PREVIEW (Desktop Only) --- */}
+      {/* --- RIGHT SIDE: LIVE PREVIEW --- */}
       <div className="composer-preview">
-        {/* Adjusted Label Position via CSS */}
         <p className="preview-label">LIVE PREVIEW</p>
         
-        <div className="paper-preview" style={{ background: currentTheme.bg, color: currentTheme.color }}>
-          <div style={{ borderBottom: `1px solid ${currentTheme.color}40`, paddingBottom: '15px', marginBottom: '20px' }}>
-             <span style={{ fontFamily: currentTheme.font, fontSize: '14px', opacity: 0.7 }}>
+        <div className="paper-preview" style={{ background: currentVisuals.bg, color: currentVisuals.color }}>
+          <div style={{ borderBottom: `1px solid ${currentVisuals.color}40`, paddingBottom: '15px', marginBottom: '20px' }}>
+             <span style={{ fontFamily: currentVisuals.font, fontSize: '14px', opacity: 0.7 }}>
                {unlockDate ? `Opens on: ${unlockDate}` : 'Open immediately'}
              </span>
           </div>
 
-          <div className="handwritten-text" style={{ fontFamily: currentTheme.font }}>
-             {message || "(Your letter content will appear here...)"}
+          <div className="handwritten-text" style={{ fontFamily: currentVisuals.font }}>
+             {/* Show placeholder if empty, but respecting the To: Name */}
+             {message || (receiver ? `Dear ${receiver},` : "Start typing...")}
           </div>
 
-          <div style={{ marginTop: 'auto', paddingTop: '30px', textAlign: 'right', fontFamily: currentTheme.font }}>
+          <div style={{ marginTop: 'auto', paddingTop: '30px', textAlign: 'right', fontFamily: currentVisuals.font }}>
             <p style={{ margin: 0, opacity: 0.6, fontSize: '14px' }}>Sincerely,</p>
             <p style={{ margin: '5px 0 0', fontSize: '18px', fontWeight: 'bold' }}>{sender || "..."}</p>
           </div>
