@@ -72,16 +72,18 @@ export default function ViewLetter() {
     setTimeLeft(`${days}d ${hours}h ${minutes}m`)
   }
 
-  // --- NEW: THEME HELPERS ---
+  // --- THEME HELPERS ---
   const getThemeClass = (themeName) => {
     if (themeName === 'christmas') return 'theme-christmas'
     return ''
   }
 
-  // If Christmas, we make background transparent so the Image shows. 
-  // Otherwise, we use the standard colors.
+  // FIX IS HERE: Don't use 'background' shorthand for Christmas!
   const getContainerStyle = (themeName, themeConfig) => {
-    if (themeName === 'christmas') return { background: 'transparent' } 
+    if (themeName === 'christmas') {
+      // Return empty background so CSS class wins!
+      return { color: '#2d3436' } 
+    }
     return { background: themeConfig.bg, color: themeConfig.color }
   }
 
@@ -119,7 +121,7 @@ export default function ViewLetter() {
     </div>
   )
 
-  // 2. ENVELOPE VIEW (Before Opening)
+  // 2. ENVELOPE VIEW
   if (!isOpen) return (
     <div className="view-page-bg">
       <div className="envelope-wrapper">
@@ -133,7 +135,7 @@ export default function ViewLetter() {
     </div>
   )
 
-  // 3. THE LETTER (Reading Mode)
+  // 3. THE LETTER
   return (
     <div className="view-page-bg">
       <div 
@@ -143,7 +145,7 @@ export default function ViewLetter() {
         
         {/* HEADER */}
         <div style={{ 
-          borderBottom: letter.theme === 'christmas' ? 'none' : `1px solid ${currentTheme.color}40`, // Remove line for scroll 
+          borderBottom: letter.theme === 'christmas' ? 'none' : `1px solid ${currentTheme.color}40`, 
           paddingBottom: '20px', 
           marginBottom: '30px', 
           display: 'flex', 
