@@ -12,49 +12,71 @@ export default function ComposeLetter() {
 
   // DATA
   const [theme, setTheme] = useState('classic')
-  const [subTheme, setSubTheme] = useState(null) // New: For specific holidays
+  const [subTheme, setSubTheme] = useState(null) 
   
   const [sender, setSender] = useState('')
-  const [receiver, setReceiver] = useState('') // New: Receiver Name
+  const [receiver, setReceiver] = useState('')
   const [unlockDate, setUnlockDate] = useState('')
   const [message, setMessage] = useState('')
   const [ticket, setTicket] = useState(null)
 
-  // Canvas Ref for generating receipt
-  const qrRef = useRef(null)
-
   // THEME CONFIG
+  // Note: We use 'colSpan' to control the layout (2 = full width, 1 = half width)
   const themes = [
-    { id: 'classic', label: 'Classic', bg: '#fdf6e3', color: '#5b4636', font: '"Times New Roman", serif' },
-    { id: 'love', label: 'Romance', bg: '#fff0f3', color: '#c0392b', font: 'Brush Script MT, cursive' },
-    { id: 'holiday', label: 'Holiday', bg: '#f0f9ff', color: '#2c3e50', font: 'Georgia, serif' }, // Placeholder for holiday
-    { id: 'simple', label: 'Minimal', bg: '#ffffff', color: '#2d3436', font: 'Arial, sans-serif' }
+    { id: 'holiday', label: 'Holiday & Seasonal', bg: '#f0f9ff', color: '#2c3e50', font: 'Georgia, serif', colSpan: 2 },
+    { id: 'love', label: 'Romance', bg: '#fff0f3', color: '#c0392b', font: 'Brush Script MT, cursive', colSpan: 2 },
+    { id: 'classic', label: 'Classic', bg: '#fdf6e3', color: '#5b4636', font: '"Times New Roman", serif', colSpan: 1 },
+    { id: 'simple', label: 'Minimal', bg: '#ffffff', color: '#2d3436', font: 'Arial, sans-serif', colSpan: 1 }
   ]
 
-  // HOLIDAY SUB-OPTIONS
+  // EXTENDED HOLIDAY OPTIONS
   const holidayOptions = [
     { id: 'christmas', label: 'Christmas', bg: '#d1f2eb', color: '#006266', icon: '🎄' },
     { id: 'newyear', label: 'New Year', bg: '#fff3cd', color: '#d35400', icon: '🎆' },
-    { id: 'valentines', label: 'Valentine\'s', bg: '#ffe3e3', color: '#c0392b', icon: '💘' }
+    { id: 'valentines', label: 'Valentine\'s', bg: '#ffe3e3', color: '#c0392b', icon: '💘' },
+    { id: 'thanksgiving', label: 'Thanksgiving', bg: '#ffeaa7', color: '#e67e22', icon: '🦃' },
+    { id: 'easter', label: 'Easter', bg: '#e0f7fa', color: '#00bcd4', icon: '🐰' },
+    { id: 'halloween', label: 'Halloween', bg: '#2d3436', color: '#fab1a0', icon: '🎃' },
+    { id: 'cny', label: 'Chinese New Year', bg: '#ff7675', color: '#d63031', icon: '🧧' }
   ]
 
-  // 1. Determine actual visual theme based on sub-selection
+  // 1. Determine actual visual theme based on selection
   const getVisualTheme = () => {
+    // If it's a holiday, use the specific holiday colors
     if (theme === 'holiday' && subTheme) {
       const h = holidayOptions.find(o => o.id === subTheme)
-      return { ...themes.find(t => t.id === 'holiday'), bg: h.bg, color: h.color }
+      if (h) return { ...themes.find(t => t.id === 'holiday'), bg: h.bg, color: h.color }
     }
+    // Otherwise return the main theme
     return themes.find(t => t.id === theme) || themes[0]
   }
 
   const currentVisuals = getVisualTheme()
 
-  // 2. Auto-fill "Dear X" when receiver changes
+  // 2. FIXED: "Dear Name" Logic
+  // This logic looks for "Dear [Something]," at the start and replaces it properly
   useEffect(() => {
-    if (receiver && !message.startsWith('Dear')) {
+    // If empty name, do nothing (or we could clear it, but better to leave it)
+    if (!receiver) return
+
+    // If message is totally empty, start it off
+    if (!message) {
       setMessage(`Dear ${receiver},\n\n`)
-    } else if (!receiver && message.startsWith('Dear')) {
-       setMessage('') // Clear if they delete name
+      return
+    }
+
+    // Check if message starts with "Dear ..., "
+    const dearRegex = /^Dear .*?,\n\n/
+    const simpleDearRegex = /^Dear .*?,/
+
+    if (message.match(simpleDearRegex)) {
+      // Replace existing "Dear X," with "Dear NewName,"
+      const newMessage = message.replace(simpleDearRegex, `Dear ${receiver},`)
+      setMessage(newMessage)
+    } else {
+      // If user deleted the Dear line manually, don't force it back immediately
+      // unless the message is exactly empty (handled above).
+      // This prevents fighting the user if they want to delete "Dear".
     }
   }, [receiver])
 
@@ -62,16 +84,12 @@ export default function ComposeLetter() {
     if (!message || !sender) return alert('Please write a message and sign your name.')
     setLoading(true)
 
-    // Note: We append the Receiver name to the message body if your DB doesn't have a receiver_name column yet.
-    // If you added 'receiver_name' to Supabase, you can add it here.
-    const finalMessage = message 
-
     const { data, error } = await supabase
       .from('digital_letters')
       .insert({
         sender_name: sender,
-        message_body: finalMessage,
-        theme: subTheme || theme, // Save the specific holiday if selected
+        message_body: message,
+        theme: theme === 'holiday' ? subTheme : theme, // Store specific holiday if applicable
         unlock_at: unlockDate ? new Date(unlockDate).toISOString() : null
       })
       .select()
@@ -82,59 +100,34 @@ export default function ComposeLetter() {
       alert('Error: ' + error.message)
     } else {
       setTicket(data[0].ticket_code)
-      setStep(5) // Success
+      setStep(5)
     }
   }
 
-  // --- RECEIPT DOWNLOADER ---
+  // RECEIPT DOWNLOADER
   const downloadReceipt = () => {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
+    canvas.width = 400; canvas.height = 600
     
-    // Set Receipt Size
-    canvas.width = 400
-    canvas.height = 600
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height)
     
-    // 1. Background
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    
-    // 2. Header
-    ctx.fillStyle = '#1a1a1a'
-    ctx.font = 'bold 24px Arial'
-    ctx.textAlign = 'center'
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center'
     ctx.fillText('PAPERPLAY RECEIPT', 200, 60)
     
-    // 3. Ticket Code
-    ctx.font = '14px Arial'
-    ctx.fillStyle = '#666'
+    ctx.font = '14px Arial'; ctx.fillStyle = '#666'
     ctx.fillText('TICKET CODE', 200, 100)
     
-    ctx.font = 'bold 40px Monospace'
-    ctx.fillStyle = '#1a1a1a'
+    ctx.font = 'bold 40px Monospace'; ctx.fillStyle = '#1a1a1a'
     ctx.fillText(ticket, 200, 150)
     
-    // 4. Draw QR Code (Tricky part - getting SVG to Canvas)
-    // We will cheat slightly and just leave a placeholder box or text for now
-    // because converting SVG to Canvas without libraries is complex.
-    // Instead, we will draw a border where the QR is.
-    ctx.strokeStyle = '#000'
-    ctx.lineWidth = 2
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 2
     ctx.strokeRect(100, 200, 200, 200)
-    ctx.font = '12px Arial'
-    ctx.fillText('(Scan QR in App)', 200, 300)
+    ctx.font = '12px Arial'; ctx.fillText('(Scan QR in App)', 200, 300)
 
-    // 5. Starman Message
-    ctx.fillStyle = '#1a1a1a'
-    ctx.font = 'italic 16px Georgia'
+    ctx.fillStyle = '#1a1a1a'; ctx.font = 'italic 16px Georgia'
     ctx.fillText('Thank you from Starman ✨', 200, 500)
     
-    // 6. Date
-    ctx.font = '12px Arial'
-    ctx.fillStyle = '#999'
-    ctx.fillText(new Date().toLocaleDateString(), 200, 550)
-
-    // Trigger Download
     const link = document.createElement('a')
     link.download = `PaperPlay-Receipt-${ticket}.png`
     link.href = canvas.toDataURL()
@@ -142,31 +135,42 @@ export default function ComposeLetter() {
   }
 
   // NAVIGATION HANDLERS
-  const handleThemeNext = () => {
-    if (theme === 'holiday') setStep(2.5) // Special step for holidays
-    else setStep(3)
+  const handleThemeSelection = (selectedTheme) => {
+    setTheme(selectedTheme)
+    if (selectedTheme === 'holiday') {
+      setStep(2.5) // Go to holiday choices
+    } else {
+      setStep(3) // Skip to details
+    }
   }
 
-  const BackButton = () => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-      <button onClick={() => {
-        if (step === 2.5) setStep(2)
-        else if (step === 1) navigate('/')
-        else setStep(step - 1)
-      }} className="btn-outline" style={{ width: 'auto', padding: '8px 15px' }}>← Back</button>
-      
-      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ccc', letterSpacing: '1px' }}>
-        {step < 5 ? 'CREATING...' : 'DONE'}
-      </span>
-    </div>
-  )
+  const handleBack = () => {
+    if (step === 2.5) {
+      setStep(1) // From Holidays back to Main Theme
+    } else if (step === 3) {
+      // If we are in Details, check where we came from
+      if (theme === 'holiday') setStep(2.5)
+      else setStep(1)
+    } else if (step === 4) {
+      setStep(3)
+    } else if (step === 1) {
+      navigate('/')
+    }
+  }
 
   return (
     <div className="app-container wide-view">
       
       {/* --- LEFT SIDE: CONTROLS --- */}
       <div className="composer-controls">
-        <BackButton />
+        
+        {/* BACK BUTTON */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <button onClick={handleBack} className="btn-outline" style={{ width: 'auto', padding: '8px 15px' }}>← Back</button>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ccc', letterSpacing: '1px' }}>
+            {step < 5 ? 'CREATING...' : 'DONE'}
+          </span>
+        </div>
 
         {/* STEP 1: CHOOSE THEME CATEGORY */}
         {step === 1 && (
@@ -178,9 +182,13 @@ export default function ComposeLetter() {
               {themes.map(t => (
                 <div 
                   key={t.id} 
-                  onClick={() => { setTheme(t.id); handleThemeNext() }} // Logic handled here
+                  onClick={() => handleThemeSelection(t.id)}
                   className={`theme-card ${theme === t.id ? 'active' : ''}`}
-                  style={{ background: t.bg, color: t.color }}
+                  style={{ 
+                    background: t.bg, 
+                    color: t.color, 
+                    gridColumn: `span ${t.colSpan}` // Controls layout order
+                  }}
                 >
                   <span style={{ fontFamily: t.font, fontSize: '24px' }}>Aa</span>
                   <span style={{ fontSize: '12px', marginTop: '5px', fontWeight: 'bold' }}>{t.label}</span>
@@ -196,29 +204,28 @@ export default function ComposeLetter() {
             <h1>Which Holiday?</h1>
             <p className="subtitle">Select the specific occasion.</p>
             
-            <div className="button-grid">
+            <div className="button-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                {holidayOptions.map(h => (
                  <button 
                   key={h.id}
                   onClick={() => { setSubTheme(h.id); setStep(3); }}
                   className="action-btn"
-                  style={{ background: h.bg, color: h.color, border: 'none' }}
+                  style={{ background: h.bg, color: h.color, border: 'none', flexDirection: 'column', gap: '5px', textAlign: 'center' }}
                  >
-                   <span style={{fontSize:'20px'}}>{h.icon}</span>
-                   <span>{h.label}</span>
+                   <span style={{fontSize:'24px'}}>{h.icon}</span>
+                   <span style={{fontSize:'12px'}}>{h.label}</span>
                  </button>
                ))}
             </div>
           </div>
         )}
 
-        {/* STEP 3: DETAILS (To, From, Date) */}
+        {/* STEP 3: DETAILS */}
         {step === 3 && (
           <div className="fade-in">
             <h1>The Details</h1>
             <p className="subtitle">Who is this for?</p>
             
-            {/* NEW: Receiver Field */}
             <div className="section">
               <label className="label-text">TO (RECEIVER'S NAME)</label>
               <div className="input-group">
@@ -283,7 +290,9 @@ export default function ComposeLetter() {
                 resize: 'none', 
                 border: '1px solid #eee',
                 marginBottom: '20px',
-                fontFamily: currentVisuals.font
+                fontFamily: currentVisuals.font,
+                fontSize: '16px',
+                lineHeight: '1.5'
               }}
             />
             
@@ -300,7 +309,7 @@ export default function ComposeLetter() {
              <h1>Letter Created</h1>
              <p className="subtitle">Your digital memory is ready.</p>
 
-             <div className="ticket-dashed" id="receipt-area">
+             <div className="ticket-dashed">
                 <div className="label-text">TICKET CODE</div>
                 <h1 style={{ fontSize: '32px', letterSpacing: '2px', margin: '10px 0' }}>{ticket}</h1>
                 <div style={{margin: '20px auto', background: 'white', padding: '10px', display:'inline-block'}}>
@@ -308,7 +317,6 @@ export default function ComposeLetter() {
                 </div>
              </div>
 
-             {/* NEW DOWNLOAD BUTTON */}
              <button onClick={downloadReceipt} className="action-btn" style={{ background: '#27ae60', color: 'white', marginBottom: '10px' }}>
                 📥 Download Receipt
              </button>
@@ -330,7 +338,6 @@ export default function ComposeLetter() {
           </div>
 
           <div className="handwritten-text" style={{ fontFamily: currentVisuals.font }}>
-             {/* Show placeholder if empty, but respecting the To: Name */}
              {message || (receiver ? `Dear ${receiver},` : "Start typing...")}
           </div>
 
