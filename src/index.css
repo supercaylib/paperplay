@@ -650,54 +650,60 @@ a { text-decoration: none; }
   max-width: 350px;
 }
 /* ==============================
-   CUSTOM CHRISTMAS THEME
+   CUSTOM CHRISTMAS THEME (FIXED)
    ============================== */
 
-/* 1. Import the Font (Must be at the top of the file ideally) */
 @import url('https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@400;700&display=swap');
 
 .theme-christmas {
-  /* IMAGE SETTINGS */
+  /* 1. Background Image Settings */
   background-image: url('/christmas-bg.png'); 
-  background-size: 100% 100%;
+  background-size: 100% 100%; /* Forces image to fill the div */
   background-position: center;
   background-repeat: no-repeat;
+  background-color: transparent !important; 
   
-  /* FALLBACK COLOR: If image fails, show this beige paper color instead of transparent */
-  background-color: #f4e4bc; 
-  
-  /* DIMENSIONS: Ensure it has shape even if empty */
-  min-height: 600px;
+  /* 2. Shape & Size */
+  min-height: 700px; /* Make it taller so the scroll looks natural */
+  max-width: 550px;  /* Keep it reasonable width */
   width: 100%;
-  max-width: 500px;
-
-  /* SAFE ZONES (Padding) */
-  padding-top: 110px !important;
-  padding-bottom: 110px !important;
-  padding-left: 100px !important; 
-  padding-right: 80px !important;
-
-  /* TEXT STYLE */
-  font-family: 'Mountains of Christmas', cursive, 'Georgia', serif !important;
-  font-size: 24px !important;
-  line-height: 1.5 !important;
-  color: #2d3436 !important; 
-  font-weight: 700;
   
-  /* Clean up borders */
+  /* 3. THE SAFE ZONES (Crucial for placement) */
+  /* Push text DOWN past the top roll */
+  padding-top: 160px !important; 
+  /* Push text UP from the bottom roll */
+  padding-bottom: 140px !important; 
+  /* Push text RIGHT from the Tree */
+  padding-left: 120px !important; 
+  /* Push text LEFT from the Candy Cane */
+  padding-right: 100px !important;
+
+  /* 4. Text Styling */
+  font-family: 'Mountains of Christmas', cursive, serif !important;
+  font-size: 24px !important;
+  line-height: 1.4 !important;
+  color: #1a1a1a !important; 
+  font-weight: 700;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.4); /* Helps text read better on texture */
+  
+  /* 5. Remove Standard Styles */
   box-shadow: none !important;
   border: none !important;
 }
 
-/* Mobile Tweaks */
+/* CRITICAL FIX: Remove the "Notebook Lines" texture */
+.theme-christmas::before {
+  display: none !important;
+}
+
+/* Mobile Adjustments */
 @media (max-width: 600px) {
   .theme-christmas {
-    background-size: 100% 100%;
-    /* Tighter padding for phones */
-    padding-top: 90px !important;
-    padding-bottom: 90px !important;
-    padding-left: 60px !important;
-    padding-right: 50px !important;
+    min-height: 600px;
+    padding-top: 130px !important;
+    padding-bottom: 120px !important;
+    padding-left: 80px !important;
+    padding-right: 60px !important;
     font-size: 18px !important;
   }
 }
