@@ -9,6 +9,7 @@ export default function ComposeLetter() {
   // STATE
   const [step, setStep] = useState(1) 
   const [loading, setLoading] = useState(false)
+  const [copied, setCopied] = useState(false) // NEW: Track copy state
 
   // DATA
   const [withQr, setWithQr] = useState(false)
@@ -52,6 +53,13 @@ export default function ComposeLetter() {
     }
   }
 
+  // NEW: Copy Function
+  function copyToClipboard() {
+    navigator.clipboard.writeText(ticket)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000) // Reset after 2 seconds
+  }
+
   // REUSABLE COMPONENTS
   const BackButton = () => (
     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -67,7 +75,6 @@ export default function ComposeLetter() {
   )
 
   return (
-    // "wide-view" class enables the split layout on Desktop
     <div className="app-container wide-view">
       
       {/* --- LEFT SIDE: CONTROLS --- */}
@@ -79,7 +86,6 @@ export default function ComposeLetter() {
           <div className="fade-in">
             <h1>Delivery Method</h1>
             <p className="subtitle">How will they receive this?</p>
-            
             <div className="button-grid">
               <button onClick={() => { setWithQr(false); setStep(2) }} className="action-btn btn-outline">
                 <span style={{fontSize:'20px'}}>🎟️</span>
@@ -88,7 +94,6 @@ export default function ComposeLetter() {
                   <div style={{fontSize:'11px', color:'#888', fontWeight:'normal'}}>Share a simple 6-digit code.</div>
                 </div>
               </button>
-
               <button onClick={() => { setWithQr(true); setStep(2) }} className="action-btn btn-outline">
                 <span style={{fontSize:'20px'}}>🔳</span>
                 <div style={{textAlign:'left'}}>
@@ -105,7 +110,6 @@ export default function ComposeLetter() {
           <div className="fade-in">
             <h1>Choose Aesthetic</h1>
             <p className="subtitle">Set the vibe for your letter.</p>
-            
             <div className="theme-grid">
               {themes.map(t => (
                 <div 
@@ -127,35 +131,19 @@ export default function ComposeLetter() {
           <div className="fade-in">
             <h1>The Details</h1>
             <p className="subtitle">Sign your name.</p>
-            
             <div className="section">
               <label className="label-text">FROM</label>
               <div className="input-group">
-                <input 
-                  type="text" 
-                  className="main-input" 
-                  placeholder="e.g. Secret Admirer" 
-                  value={sender} 
-                  onChange={e => setSender(e.target.value)}
-                  style={{paddingLeft: '15px'}}
-                />
+                <input type="text" className="main-input" placeholder="e.g. Secret Admirer" value={sender} onChange={e => setSender(e.target.value)} style={{paddingLeft: '15px'}} />
               </div>
             </div>
-
             <div className="section">
               <label className="label-text">UNLOCK DATE (OPTIONAL)</label>
               <div className="input-group">
-                <input 
-                  type="date" 
-                  className="main-input" 
-                  value={unlockDate} 
-                  onChange={e => setUnlockDate(e.target.value)}
-                  style={{paddingLeft: '15px'}}
-                />
+                <input type="date" className="main-input" value={unlockDate} onChange={e => setUnlockDate(e.target.value)} style={{paddingLeft: '15px'}} />
               </div>
               <p style={{fontSize:'12px', color:'#999', marginTop:'5px'}}>Leave empty to unlock immediately.</p>
             </div>
-
             <button onClick={() => setStep(4)} className="action-btn btn-solid">Next Step →</button>
           </div>
         )}
@@ -165,23 +153,13 @@ export default function ComposeLetter() {
           <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <h1>Write Letter</h1>
             <p className="subtitle">Pour your heart out.</p>
-
             <textarea 
               className="main-input"
               placeholder="Start typing your letter here..."
               value={message}
               onChange={e => setMessage(e.target.value)}
-              style={{
-                flex: 1, 
-                background: '#f9f9f9', 
-                borderRadius: '12px', 
-                padding: '20px', 
-                resize: 'none', 
-                border: '1px solid #eee',
-                marginBottom: '20px'
-              }}
+              style={{ flex: 1, background: '#f9f9f9', borderRadius: '12px', padding: '20px', resize: 'none', border: '1px solid #eee', marginBottom: '20px' }}
             />
-            
             <button onClick={handlePublish} disabled={loading} className="action-btn btn-solid">
               {loading ? 'Publishing...' : 'Create Letter ✨'}
             </button>
@@ -197,7 +175,12 @@ export default function ComposeLetter() {
 
              <div className="ticket-dashed">
                 <div className="label-text">TICKET CODE</div>
-                <h1 style={{ fontSize: '32px', letterSpacing: '2px' }}>{ticket}</h1>
+                <h1 style={{ fontSize: '32px', letterSpacing: '2px', margin: '10px 0' }}>{ticket}</h1>
+                
+                {/* NEW COPY BUTTON */}
+                <button onClick={copyToClipboard} className="copy-btn">
+                   {copied ? '✓ Copied!' : '📋 Copy Code'}
+                </button>
              </div>
 
              {withQr && (
@@ -213,9 +196,9 @@ export default function ComposeLetter() {
 
       {/* --- RIGHT SIDE: LIVE PREVIEW (Desktop Only) --- */}
       <div className="composer-preview">
-        <p className="label-text" style={{ position: 'absolute', top: '20px', left: '20px' }}>LIVE PREVIEW</p>
+        {/* Adjusted Label Position via CSS */}
+        <p className="preview-label">LIVE PREVIEW</p>
         
-        {/* The Paper */}
         <div className="paper-preview" style={{ background: currentTheme.bg, color: currentTheme.color }}>
           <div style={{ borderBottom: `1px solid ${currentTheme.color}40`, paddingBottom: '15px', marginBottom: '20px' }}>
              <span style={{ fontFamily: currentTheme.font, fontSize: '14px', opacity: 0.7 }}>
