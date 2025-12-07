@@ -10,6 +10,9 @@ export default function OrderStatus() {
   const [loading, setLoading] = useState(true)
   const [order, setOrder] = useState(null)
   const [qrData, setQrData] = useState(null)
+  
+  // NEW: State for Video Preview Modal
+  const [showVideo, setShowVideo] = useState(false)
 
   useEffect(() => { fetchStatus() }, [ticket])
 
@@ -43,8 +46,7 @@ export default function OrderStatus() {
   const getStepStatus = (stepName) => {
     if (!order) return ''
     const status = order.status
-    
-    if (stepName === 'Pending') return 'active' // Always active if order exists
+    if (stepName === 'Pending') return 'active'
     if (stepName === 'Processing' && (status === 'Processing' || status === 'Done')) return 'active'
     if (stepName === 'Done' && status === 'Done') return 'active'
     return ''
@@ -73,17 +75,13 @@ export default function OrderStatus() {
       {/* LEFT SIDE: TIMELINE */}
       <div className="composer-controls">
         
-        {/* Header */}
         <div style={{ marginBottom: '30px' }}>
           <button onClick={() => navigate('/')} className="btn-outline" style={{ width: 'auto', padding: '8px 15px', marginBottom: '20px' }}>← Back Home</button>
           <h1>Order Tracking</h1>
           <p className="subtitle">Track the status of your physical letter.</p>
         </div>
 
-        {/* Timeline */}
         <div className="timeline-container">
-          
-          {/* STEP 1 */}
           <div className={`timeline-step ${getStepStatus('Pending')}`}>
             <div className="step-icon">📝</div>
             <div className="step-content">
@@ -92,7 +90,6 @@ export default function OrderStatus() {
             </div>
           </div>
 
-          {/* STEP 2 */}
           <div className={`timeline-step ${getStepStatus('Processing')}`}>
             <div className="step-icon">🔨</div>
             <div className="step-content">
@@ -101,7 +98,6 @@ export default function OrderStatus() {
             </div>
           </div>
 
-          {/* STEP 3 */}
           <div className={`timeline-step ${getStepStatus('Done')}`}>
             <div className="step-icon">📦</div>
             <div className="step-content">
@@ -109,12 +105,11 @@ export default function OrderStatus() {
               <p className="step-desc">Your letter is ready! We will contact you shortly.</p>
             </div>
           </div>
-
         </div>
       </div>
 
       {/* RIGHT SIDE: DIGITAL ASSET CARD */}
-      <div className="composer-preview" style={{ background: '#f5f5f7' }}> {/* Override white bg */}
+      <div className="composer-preview" style={{ background: '#f5f5f7' }}>
         <p className="preview-label">DIGITAL ASSET</p>
         
         <div className="qr-display-card">
@@ -137,14 +132,41 @@ export default function OrderStatus() {
              {qrData?.video_url ? "✅ Video Message Attached" : "⚪ No Video Attached"}
           </div>
 
-          <a href={`https://paperplay-nu.vercel.app/${order.ticket_code}`} target="_blank" style={{textDecoration:'none'}}>
-            <button className="action-btn btn-outline">
-              {qrData?.video_url ? "▶ Preview Video" : "📤 Upload Video"}
+          {/* ACTION BUTTONS */}
+          {qrData?.video_url ? (
+            <button onClick={() => setShowVideo(true)} className="action-btn btn-outline">
+              ▶ Preview Video
             </button>
-          </a>
+          ) : (
+            <a href={`https://paperplay-nu.vercel.app/${order.ticket_code}`} target="_blank" style={{textDecoration:'none'}}>
+              <button className="action-btn btn-outline">
+                📤 Upload Video
+              </button>
+            </a>
+          )}
 
         </div>
       </div>
+
+      {/* VIDEO PREVIEW MODAL */}
+      {showVideo && qrData?.video_url && (
+        <div className="modal-overlay" onClick={() => setShowVideo(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: 'black', width: '100%', maxWidth: '800px', padding: 0, overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <video 
+              src={qrData.video_url} 
+              controls 
+              autoPlay 
+              style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain' }}
+            />
+            <button 
+              onClick={() => setShowVideo(false)}
+              style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '20px' }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   )
