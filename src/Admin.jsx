@@ -241,7 +241,7 @@ export default function Admin() {
                     </div>
                  </div>
 
-                 {/* MAINTENANCE BOX (RESTORED 3rd BUTTON) */}
+                 {/* MAINTENANCE BOX */}
                  <div style={styles.maintenanceBox}>
                     <h4 style={{fontSize:'12px', fontWeight:'800', color:'#b91c1c', marginBottom:'15px', letterSpacing:'1px'}}>DATABASE MAINTENANCE</h4>
                     <div style={{display:'grid', gap:'10px'}}>
@@ -354,8 +354,21 @@ export default function Admin() {
       </div>
 
       {/* MODALS */}
-      {previewVideo && <Modal onClose={() => setPreviewVideo(null)}><video src={previewVideo} controls autoPlay style={{ width: '100%', borderRadius: '10px' }} /></Modal>}
+      {previewVideo && (
+        <Modal onClose={() => setPreviewVideo(null)} wide={true}>
+          <div style={{width:'100%', background:'black', borderRadius:'8px', overflow:'hidden', display:'flex', justifyContent:'center'}}>
+            <video 
+              src={previewVideo} 
+              controls 
+              autoPlay 
+              style={{ width: '100%', maxHeight: '80vh', aspectRatio: 'auto', objectFit: 'contain' }} 
+            />
+          </div>
+        </Modal>
+      )}
+
       {viewQr && <Modal onClose={() => setViewQr(null)}><QRCode value={viewQr.link} size={150} /><p style={{marginTop:'15px', fontWeight:'bold', fontFamily:'monospace'}}>{viewQr.id}</p></Modal>}
+      
       {viewLetter && <Modal onClose={() => setViewLetter(null)}>
         <h3 style={{marginTop:0}}>Letter Content</h3>
         <div style={{background: '#f8fafc', padding:'20px', borderRadius:'8px', textAlign:'left', whiteSpace:'pre-wrap', maxHeight:'400px', overflowY:'auto', border:'1px solid #e2e8f0', fontFamily:'serif'}}>
@@ -431,9 +444,9 @@ const Badge = ({ type, children }) => {
   return <span style={{background:c.bg, color:c.t, padding:'2px 8px', borderRadius:'12px', fontSize:'11px', fontWeight:'700'}}>{children}</span>
 }
 
-const Modal = ({ onClose, children }) => (
+const Modal = ({ onClose, children, wide }) => (
   <div className="no-print" onClick={onClose} style={styles.modalOverlay}>
-    <div onClick={e => e.stopPropagation()} style={styles.modalContent}>
+    <div onClick={e => e.stopPropagation()} style={{...styles.modalContent, maxWidth: wide ? '900px' : '500px'}}>
       {children}
     </div>
   </div>
