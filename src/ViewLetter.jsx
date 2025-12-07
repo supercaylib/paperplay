@@ -1,148 +1,185 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from './supabaseClient'
-import Confetti from 'react-confetti'
 
 export default function ViewLetter() {
   const { ticket } = useParams()
   const navigate = useNavigate()
-  
-  const [loading, setLoading] = useState(true)
-  const [letter, setLetter] = useState(null)
-  const [error, setError] = useState(false)
-  const [isOpen, setIsOpen] = useState(false) // Controls the animation
 
-  useEffect(() => { fetchLetter() }, [ticket])
+  // STATE
+  const [letter, setLetter] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  
+  // INTERACTION STATE
+  const [isLocked, setIsLocked] = useState(false)
+  const [timeLeft, setTimeLeft] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+
+  // THEME DEFINITIONS (Must match ComposeLetter)
+  const themes = {
+    classic: { bg: '#fdf6e3', color: '#5b4636', font: '"Times New Roman", serif' },
+    love: { bg: '#fff0f3', color: '#c0392b', font: 'Brush Script MT, cursive' },
+    christmas: { bg: '#d1f2eb', color: '#006266', font: 'Georgia, serif' },
+    simple: { bg: '#ffffff', color: '#2d3436', font: 'Arial, sans-serif' }
+  }
+
+  useEffect(() => {
+    fetchLetter()
+  }, [])
 
   async function fetchLetter() {
+    // 1. Get Letter Data
     const { data, error } = await supabase
       .from('digital_letters')
       .select('*')
       .eq('ticket_code', ticket)
       .single()
 
+    if (error || !data) {
+      setLoading(false)
+      setError(true)
+      return
+    }
+
+    setLetter(data)
     setLoading(false)
-    if (error || !data) setError(true)
-    else setLetter(data)
+
+    // 2. Check Lock Status
+    if (data.unlock_at) {
+      const unlockDate = new Date(data.unlock_at)
+      const now = new Date()
+      
+      if (now < unlockDate) {
+        setIsLocked(true)
+        calculateTimeLeft(unlockDate)
+        // Update timer every second
+        setInterval(() => calculateTimeLeft(unlockDate), 1000)
+      }
+    }
   }
 
-  // LOGIC: Is it locked?
-  const isLocked = letter?.unlock_at && new Date() < new Date(letter.unlock_at)
-  
-  // COUNTDOWN MATH
-  const timeLeft = letter?.unlock_at ? new Date(letter.unlock_at) - new Date() : 0
-  const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24))
-  const hours = Math.floor((timeLeft / (1000 * 60 * 60)) % 24)
-  const minutes = Math.floor((timeLeft / 1000 / 60) % 60)
+  function calculateTimeLeft(targetDate) {
+    const now = new Date()
+    const diff = targetDate - now
 
-  // THEME STYLES
-  const themes = {
-    classic: { bg: '#fdf6e3', text: '#5b4636', font: '"Times New Roman", serif', border: '4px double #d4c5a9' },
-    love:    { bg: '#fff0f3', text: '#c0392b', font: 'cursive', border: '2px solid #ff7675' },
-    christmas: { bg: '#d1f2eb', text: '#006266', font: 'serif', border: '2px dashed #16a085' },
-    simple:  { bg: '#ffffff', text: '#2d3436', font: 'sans-serif', border: '1px solid #ddd' }
+    if (diff <= 0) {
+      setIsLocked(false)
+      return
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    
+    setTimeLeft(`${days}d ${hours}h ${minutes}m`)
   }
-  
-  const activeTheme = letter ? themes[letter.theme] || themes.classic : themes.classic
 
-  if (loading) return <div style={styles.center}><h2>Checking Ticket... 🎟️</h2></div>
-  
+  // LOADING SCREEN
+  if (loading) return (
+    <div className="view-page-bg">
+      <div style={{color:'white'}}>Fetching your letter...</div>
+    </div>
+  )
+
+  // ERROR SCREEN
   if (error) return (
-    <div style={styles.center}>
-      <h1>🚫</h1>
-      <h2>Letter Not Found</h2>
-      <button onClick={() => navigate('/')} style={styles.btn}>Go Home</button>
-    </div>
-  )
-
-  // --- VIEW 1: LOCKED (Countdown) ---
-  if (isLocked) {
-    return (
-      <div style={styles.center}>
-        <h1 style={{fontSize:'60px', margin:0}}>🔒</h1>
-        <h2 style={{color: '#333'}}>Do Not Open Until...</h2>
-        <p style={{fontSize:'18px', color:'#d63031', fontWeight:'bold'}}>
-          {new Date(letter.unlock_at).toDateString()}
-        </p>
-        
-        <div style={styles.countdownBox}>
-          <div style={styles.timeUnit}><h1>{days}</h1><small>DAYS</small></div>
-          <div style={styles.timeUnit}><h1>{hours}</h1><small>HRS</small></div>
-          <div style={styles.timeUnit}><h1>{minutes}</h1><small>MINS</small></div>
-        </div>
-        <p style={{color:'#777', marginTop:'20px'}}>Excited yarn? ✨</p>
+    <div className="view-page-bg">
+      <div className="lock-screen">
+        <h2>🚫 Letter Not Found</h2>
+        <p>This ticket code is invalid or the letter was deleted.</p>
+        <button onClick={() => navigate('/')} className="action-btn btn-outline" style={{marginTop:'20px'}}>Go Home</button>
       </div>
-    )
-  }
-
-  // --- VIEW 2: UNLOCKED (The Letter) ---
-  return (
-    <div style={styles.center}>
-      {isOpen && letter.theme === 'love' && <Confetti numberOfPieces={100} colors={['#ff7675', '#fd79a8']} />}
-      {isOpen && letter.theme === 'christmas' && <Confetti numberOfPieces={100} colors={['#00b894', '#d63031']} />}
-
-      {!isOpen ? (
-        // ENVELOPE CLOSED STATE
-        <div style={styles.envelopeWrapper} onClick={() => setIsOpen(true)}>
-          <div style={styles.envelope}>
-            <div style={styles.seal}>💌</div>
-            <p style={{marginTop:'80px', fontWeight:'bold', color:'#555'}}>From: {letter.sender_name}</p>
-            <p style={{fontSize:'12px', color:'#999'}}>(Tap to Open)</p>
-          </div>
-        </div>
-      ) : (
-        // LETTER OPEN STATE
-        <div style={styles.letterWrapper}>
-          <div style={{
-            ...styles.letterPaper,
-            background: activeTheme.bg,
-            color: activeTheme.text,
-            fontFamily: activeTheme.font,
-            border: activeTheme.border
-          }}>
-            <p style={{textAlign:'right', fontSize:'12px', opacity:0.6}}>{new Date(letter.created_at).toLocaleDateString()}</p>
-            
-            <h2 style={{marginBottom:'30px'}}>Dear Receiver,</h2>
-            
-            <p style={{whiteSpace: 'pre-wrap', lineHeight: '1.8', fontSize: '18px'}}>
-              {letter.message_body}
-            </p>
-
-            <p style={{marginTop:'50px', textAlign:'right', fontWeight:'bold'}}>
-              Sincerely,<br/>
-              {letter.sender_name}
-            </p>
-          </div>
-
-          <button onClick={() => navigate('/')} style={styles.closeBtn}>Close Letter</button>
-        </div>
-      )}
     </div>
   )
-}
 
-const styles = {
-  center: { minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#e0e5ec', padding: '20px', fontFamily: 'sans-serif' },
-  btn: { padding: '10px 20px', background: 'black', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', marginTop: '20px' },
-  
-  countdownBox: { display: 'flex', gap: '20px', background: 'white', padding: '20px', borderRadius: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', marginTop: '20px' },
-  timeUnit: { textAlign: 'center', minWidth: '60px' },
+  const currentTheme = themes[letter.theme] || themes.classic
 
-  // ENVELOPE ANIMATION STYLES
-  envelopeWrapper: { cursor: 'pointer', perspective: '1000px' },
-  envelope: { 
-    width: '300px', height: '200px', background: '#fff', borderRadius: '10px',
-    boxShadow: '0 20px 50px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column',
-    alignItems: 'center', justifyContent: 'center', position: 'relative',
-    border: '2px solid #ddd'
-  },
-  seal: { fontSize: '50px', position: 'absolute', top: '-25px', background: '#f0f2f5', borderRadius: '50%', padding: '5px' },
+  // 1. LOCKED VIEW
+  if (isLocked) return (
+    <div className="view-page-bg">
+      <div className="lock-screen">
+        <div style={{fontSize:'40px', marginBottom:'10px'}}>🔒</div>
+        <h2>Do Not Open Until...</h2>
+        <p>This letter is time-locked by the sender.</p>
+        
+        <div className="countdown-box">
+          {timeLeft}
+        </div>
 
-  // LETTER PAPER STYLES
-  letterWrapper: { width: '100%', maxWidth: '600px', animation: 'slideUp 0.8s ease' },
-  letterPaper: { 
-    padding: '40px', borderRadius: '5px', 
-    boxShadow: '0 5px 30px rgba(0,0,0,0.15)', minHeight: '400px'
-  },
-  closeBtn: { marginTop: '30px', background: 'transparent', border: '1px solid #aaa', padding: '10px 20px', borderRadius: '30px', cursor: 'pointer', color: '#555' }
+        <p style={{fontSize:'12px', opacity:0.7}}>Unlocks on: {new Date(letter.unlock_at).toLocaleDateString()}</p>
+        <button onClick={() => navigate('/')} className="action-btn btn-outline" style={{marginTop:'20px'}}>Okay, I'll Wait</button>
+      </div>
+    </div>
+  )
+
+  // 2. ENVELOPE VIEW (Before Opening)
+  if (!isOpen) return (
+    <div className="view-page-bg">
+      <div className="envelope-wrapper">
+        
+        <div className="envelope-closed" onClick={() => setIsOpen(true)}>
+          <div className="wax-seal">P</div>
+          <h3>A Letter for You</h3>
+          <p style={{fontSize:'14px', color:'#666', margin:'10px 0'}}>From: <strong>{letter.sender_name}</strong></p>
+          <div style={{fontSize:'12px', color:'#999', marginTop:'20px'}}>Tap to Break Seal</div>
+        </div>
+
+      </div>
+    </div>
+  )
+
+  // 3. THE LETTER (Reading Mode)
+  return (
+    <div className="view-page-bg">
+      <div className="letter-container" style={{ background: currentTheme.bg, color: currentTheme.color }}>
+        
+        {/* HEADER */}
+        <div style={{ borderBottom: `1px solid ${currentTheme.color}40`, paddingBottom: '20px', marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', opacity: 0.5, letterSpacing: '1px' }}>PAPERPLAY ARCHIVE</span>
+          <span style={{ fontFamily: currentTheme.font, fontSize: '14px', opacity: 0.7 }}>
+             {new Date(letter.created_at).toLocaleDateString()}
+          </span>
+        </div>
+
+        {/* BODY */}
+        <div className="handwritten-text" style={{ fontFamily: currentTheme.font }}>
+           {letter.message_body}
+        </div>
+
+        {/* FOOTER */}
+        <div style={{ marginTop: '50px', textAlign: 'right', fontFamily: currentTheme.font }}>
+          <p style={{ margin: 0, opacity: 0.6, fontSize: '14px' }}>Sincerely,</p>
+          <p style={{ margin: '5px 0 0', fontSize: '20px', fontWeight: 'bold' }}>{letter.sender_name}</p>
+        </div>
+
+        {/* ACTION BAR */}
+        <div className="action-bar">
+          <button 
+            onClick={() => navigate('/')} 
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', opacity: 0.6, color: currentTheme.color }}
+          >
+            ← Close Letter
+          </button>
+
+          <button 
+            onClick={() => navigate('/create')}
+            style={{ 
+              background: currentTheme.color, 
+              color: currentTheme.bg, 
+              border: 'none', 
+              padding: '8px 16px', 
+              borderRadius: '20px', 
+              fontSize: '12px', 
+              fontWeight: 'bold', 
+              cursor: 'pointer' 
+            }}
+          >
+            Reply with a Letter
+          </button>
+        </div>
+
+      </div>
+    </div>
+  )
 }
