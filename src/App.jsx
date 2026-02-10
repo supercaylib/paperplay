@@ -12,8 +12,6 @@ function App() {
     <div>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/request" element={<RequestForm />} />
-        <Route path="/status/:ticket" element={<OrderStatus />} />
         <Route path="/create" element={<ComposeLetter />} />
         <Route path="/view/:ticket" element={<ViewLetter />} />
         <Route path="/admin" element={<Admin />} />
