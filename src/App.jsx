@@ -58,7 +58,7 @@ function LandingPage() {
       <div className="center-text" style={{marginBottom: '30px'}}>
         <img src="/logo.png" alt="Logo" className="logo-img" />
         <h1>PaperPlay</h1>
-        <p className="subtitle">Greatest Letter Maker</p>
+        <p className="subtitle">The Greatest Letter Website</p>
       </div>
 
       {/* SMART TRACKING SECTION */}
@@ -107,7 +107,7 @@ function LandingPage() {
       </div>
 
       <div className="footer">
-        <p>Caleb R. Pule</p>
+        <p>RGX Production</p>
       </div>
 
     </div>
