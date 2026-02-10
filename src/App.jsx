@@ -3,10 +3,9 @@ import { Routes, Route, useNavigate, Link } from 'react-router-dom'
 import { supabase } from './supabaseClient'
 import Scan from './Scan'
 import Admin from './Admin'
-import RequestForm from './RequestForm'
 import ComposeLetter from './ComposeLetter'
 import ViewLetter from './ViewLetter'
-import OrderStatus from './OrderStatus'
+
 
 function App() {
   return (
@@ -38,20 +37,6 @@ function LandingPage() {
     setOrderStatus(null)
     
     const code = ticketInput.toUpperCase().trim()
-
-    // 1. Check PHYSICAL Request
-    let { data: reqData } = await supabase
-      .from('letter_requests')
-      .select('ticket_code')
-      .eq('ticket_code', code)
-      .single()
-
-    if (reqData) {
-      setLoading(false)
-      navigate(`/status/${code}`)
-      return
-    }
-
     // 2. Check DIGITAL Letter
     let { data: digitalData } = await supabase
       .from('digital_letters')
