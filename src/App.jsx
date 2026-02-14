@@ -58,7 +58,7 @@ function LandingPage() {
       <div className="center-text" style={{marginBottom: '30px'}}>
         <img src="/logo.png" alt="Logo" className="logo-img" />
         <h1>PaperPlay</h1>
-        <p className="subtitle">The Greatest Letter Website</p>
+        <p className="subtitle">The Greatest Letter Maker Online</p>
       </div>
 
       {/* SMART TRACKING SECTION */}
@@ -70,7 +70,7 @@ function LandingPage() {
           </div>
           <input 
             type="text" 
-            placeholder="e.g. REQ-123 or A1B2C3" 
+            placeholder="e.g. A1B2C3" 
             value={ticketInput}
             onChange={(e) => setTicketInput(e.target.value.toUpperCase())}
             className="main-input"
@@ -107,7 +107,7 @@ function LandingPage() {
       </div>
 
       <div className="footer">
-        <p>RGX Production</p>
+        <p>RAGX Production</p>
       </div>
 
     </div>
