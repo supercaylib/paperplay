@@ -214,13 +214,13 @@ export default function ComposeLetter() {
             <div className="section">
               <label className="label-text">TO (RECEIVER'S NAME)</label>
               <div className="input-group">
-                <input type="text" className="main-input" placeholder="e.g. Receiver" value={receiver} onChange={e => setReceiver(e.target.value)} style={{paddingLeft: '15px'}} />
+                <input type="text" className="main-input" placeholder="e.g. Juliet" value={receiver} onChange={e => setReceiver(e.target.value)} style={{paddingLeft: '15px'}} />
               </div>
             </div>
             <div className="section">
               <label className="label-text">FROM (YOUR NAME)</label>
               <div className="input-group">
-                <input type="text" className="main-input" placeholder="e.g. Sender" value={sender} onChange={e => setSender(e.target.value)} style={{paddingLeft: '15px'}} />
+                <input type="text" className="main-input" placeholder="e.g. Romeo" value={sender} onChange={e => setSender(e.target.value)} style={{paddingLeft: '15px'}} />
               </div>
             </div>
             <div className="section">
